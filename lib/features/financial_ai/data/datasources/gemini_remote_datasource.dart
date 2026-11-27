@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/error/app_exception.dart';
@@ -24,6 +25,7 @@ class GeminiRemoteDataSource {
   final NativeSecureVaultBridge _vault;
   String? _activeUserId;
   bool _userScopingConfigured;
+  bool _cloudAiConsentGranted = false;
 
   GeminiRemoteDataSource({
     http.Client? httpClient,
@@ -33,6 +35,9 @@ class GeminiRemoteDataSource {
        _vault = vault ?? NativeSecureVaultBridge.instance,
        _activeUserId = initialUserId,
        _userScopingConfigured = initialUserId != null;
+
+  /// Explicit Cloud AI opt-in consent state for the most recently loaded or saved config.
+  bool get cloudAiConsentGranted => _cloudAiConsentGranted;
 
   void setActiveUserId(String? userId) {
     _userScopingConfigured = true;
@@ -67,6 +72,7 @@ class GeminiRemoteDataSource {
 
     final uid = _resolveUid(userId);
     if (uid == null) {
+      _cloudAiConsentGranted = false;
       return const GeminiConnectionConfig(
         enabled: false,
         hasApiKey: false,
@@ -80,8 +86,9 @@ class GeminiRemoteDataSource {
 
     final rawCfg = await _vault.readSecret(_configVaultKey(uid));
     if (rawCfg == null || rawCfg.trim().isEmpty) {
+      _cloudAiConsentGranted = false;
       return GeminiConnectionConfig(
-        enabled: hasKey,
+        enabled: false,
         hasApiKey: hasKey,
         maskedApiKey: masked,
       );
@@ -90,8 +97,18 @@ class GeminiRemoteDataSource {
     try {
       final map = jsonDecode(rawCfg) as Map<String, dynamic>;
       final verifiedIso = map['lastVerifiedAt'] as String?;
+      final storedEnabled = map['enabled'] as bool?;
+      final hasExplicitConsentField = map.containsKey('cloudAiConsentGranted');
+      // Backward compatibility: older configs that explicitly saved `enabled: true`
+      // prior to `cloudAiConsentGranted` retain consent, while new configs default to false.
+      final consentGranted = hasExplicitConsentField
+          ? (map['cloudAiConsentGranted'] == true)
+          : (storedEnabled == true);
+      _cloudAiConsentGranted = consentGranted;
+      final effectiveEnabled = (storedEnabled == true) && consentGranted;
+
       return GeminiConnectionConfig(
-        enabled: (map['enabled'] as bool?) ?? hasKey,
+        enabled: effectiveEnabled,
         hasApiKey: hasKey,
         maskedApiKey: masked,
         modelId:
@@ -102,18 +119,25 @@ class GeminiRemoteDataSource {
             : null,
       );
     } catch (_) {
+      _cloudAiConsentGranted = false;
       return GeminiConnectionConfig(
-        enabled: hasKey,
+        enabled: false,
         hasApiKey: hasKey,
         maskedApiKey: masked,
       );
     }
   }
 
+  Future<bool> readCloudAiConsent({String? userId}) async {
+    await readConfig(userId: userId);
+    return _cloudAiConsentGranted;
+  }
+
   Future<GeminiConnectionConfig> writeConfig({
     String? userId,
     String? newApiKey,
     bool? enabled,
+    bool? cloudAiConsentGranted,
     String? modelId,
     bool? maskSensitiveInfo,
     DateTime? lastVerifiedAt,
@@ -129,6 +153,7 @@ class GeminiRemoteDataSource {
     }
 
     final current = await readConfig(userId: uid);
+    final currentConsent = _cloudAiConsentGranted;
     if (newApiKey != null && newApiKey.trim().isNotEmpty) {
       await _vault.writeSecret(
         key: _apiKeyVaultKey(uid),
@@ -138,9 +163,29 @@ class GeminiRemoteDataSource {
     final storedKey = await _vault.readSecret(_apiKeyVaultKey(uid));
     final hasKey = storedKey != null && storedKey.trim().isNotEmpty;
 
+    final bool nextConsent;
+    if (cloudAiConsentGranted != null) {
+      nextConsent = cloudAiConsentGranted;
+    } else if (enabled != null) {
+      nextConsent = enabled;
+    } else {
+      nextConsent = currentConsent;
+    }
+
+    final bool nextEnabled;
+    if (!nextConsent) {
+      nextEnabled = false;
+    } else if (enabled != null) {
+      nextEnabled = enabled;
+    } else if (cloudAiConsentGranted == true && hasKey) {
+      nextEnabled = true;
+    } else {
+      nextEnabled = current.enabled;
+    }
+
+    _cloudAiConsentGranted = nextConsent;
     final next = current.copyWith(
-      enabled:
-          enabled ?? (newApiKey != null && hasKey ? true : current.enabled),
+      enabled: nextEnabled,
       hasApiKey: hasKey,
       maskedApiKey: hasKey ? GeminiConnectionConfig.maskKey(storedKey) : '',
       modelId: modelId ?? current.modelId,
@@ -153,6 +198,7 @@ class GeminiRemoteDataSource {
       value: jsonEncode(<String, dynamic>{
         'ownerUserId': uid,
         'enabled': next.enabled,
+        'cloudAiConsentGranted': nextConsent,
         'modelId': next.modelId,
         'maskSensitiveInfo': next.maskSensitiveInfo,
         if (next.lastVerifiedAt != null)
@@ -165,6 +211,7 @@ class GeminiRemoteDataSource {
 
   Future<GeminiConnectionConfig> clearKeyAndDisable({String? userId}) async {
     await _purgeLegacyUnscopedKeys();
+    _cloudAiConsentGranted = false;
     final uid = _resolveUid(userId);
     if (uid != null) {
       await _vault.deleteSecret(_apiKeyVaultKey(uid));
@@ -267,6 +314,66 @@ class GeminiRemoteDataSource {
     return 'Đã kết nối Gemini AI ($targetModel) thành công!';
   }
 
+  /// Builds the privacy-minimized prompt components before sending any request
+  /// to Gemini Cloud. When [maskSensitiveInfo] is true (default), raw personal
+  /// habit titles are omitted and PII (emails/phones/bank accounts/OTP) is redacted.
+  @visibleForTesting
+  static ({String safeInput, String contextLine, String systemPrompt})
+  buildSanitizedPromptPayload({
+    required String rawInput,
+    required bool maskSensitiveInfo,
+    required DateTime referenceNow,
+    GeminiContextSnapshot? contextSnapshot,
+  }) {
+    // SEC-F04: ALWAYS run OtpRedactor even if maskSensitiveInfo toggle is off!
+    final safeInput = maskSensitiveInfo
+        ? GeminiPrivacySanitizer.sanitize(rawInput)
+        : OtpRedactor.redact(rawInput);
+
+    final String contextLine;
+    if (contextSnapshot == null) {
+      contextLine = '';
+    } else if (maskSensitiveInfo) {
+      // PRIV-01: Minimize outgoing context by omitting raw personal habit labels.
+      contextLine =
+          '\nNgữ cảnh tóm tắt ẩn danh (VND nguyên): Thu tháng=${contextSnapshot.monthlyIncomeMinor}, '
+          'Chi tháng=${contextSnapshot.monthlyExpenseMinor}, '
+          'Mức an toàn/ngày=${contextSnapshot.safeDailyAllowanceMinor}, '
+          'Lịch sắp tới=${contextSnapshot.upcomingEventsCount}, '
+          'Việc đang mở=${contextSnapshot.openTasksCount}, '
+          'Số thói quen theo dõi=${contextSnapshot.topHabitLabels.length}.';
+    } else {
+      final redactedHabits = contextSnapshot.topHabitLabels
+          .map(OtpRedactor.redact)
+          .join(', ');
+      contextLine =
+          '\nNgữ cảnh tóm tắt ẩn danh (VND nguyên): Thu tháng=${contextSnapshot.monthlyIncomeMinor}, '
+          'Chi tháng=${contextSnapshot.monthlyExpenseMinor}, '
+          'Mức an toàn/ngày=${contextSnapshot.safeDailyAllowanceMinor}, '
+          'Lịch sắp tới=${contextSnapshot.upcomingEventsCount}, '
+          'Việc đang mở=${contextSnapshot.openTasksCount}, '
+          'Thói quen=$redactedHabits.';
+    }
+
+    final systemPrompt =
+        'Bạn là Trợ lý Tài chính & Nhịp sống thông minh của siêu ứng dụng Life OS tại Việt Nam. '
+        'Thời điểm tham chiếu hiện tại: ${referenceNow.toIso8601String()}.$contextLine\n'
+        'Nhiệm vụ: Phân tích câu tiếng Việt tự nhiên của người dùng thành JSON cấu trúc chặt chẽ gồm:\n'
+        '1. "assistantInsightVi": Nhận xét hoặc lời khuyên ngắn gọn, ấm áp, hữu ích (1-2 câu tiếng Việt, không dùng thuật ngữ kỹ thuật).\n'
+        '2. "transactions": Mảng các giao dịch thu/chi [{"type":"expense"|"income","amountMinor":số_nguyên_VND,"categoryName":"Ăn uống"|"Xe cộ & Di chuyển"|"Điện/Nước/Internet"|"Chợ & Mua sắm"|"Việc nhà & Gia dụng"|"Nhà cửa & Thuê nhà"|"Sức khỏe & Giáo dục"|"Giải trí & Đăng ký"|"Lương & Thu nhập"|"Chi tiêu khác","merchant":"mô tả ngắn"}]. Lưu ý: 55k = 55000, 1tr5 = 1500000. Không tạo giao dịch nếu câu chỉ hỏi thông tin hoặc báo hủy.\n'
+        '3. "groupSplits": Mảng chia hóa đơn nhóm [{"title":"mô tả","amountMinor":số_nguyên_VND,"participantCount":số_người>=2}].\n'
+        '4. "calendarEvents": Mảng lịch hẹn có thời gian cụ thể [{"title":"tiêu đề","startsAtIso":"ISO8601","durationMinutes":60,"location":""}].\n'
+        '5. "tasks": Mảng việc cần làm / nhắc nhở [{"title":"tiêu đề","dueAtIso":"ISO8601","priority":"low"|"medium"|"high"}].\n'
+        '6. "groceries": Mảng món cần mua đi chợ khi chưa thanh toán tiền [{"name":"tên món","quantityLabel":"1 phần","estimatedMinor":0}].\n'
+        '7. "waterLogs": Mảng lượng nước lọc uống vào cơ thể [{"waterMl":250}].';
+
+    return (
+      safeInput: safeInput,
+      contextLine: contextLine,
+      systemPrompt: systemPrompt,
+    );
+  }
+
   Future<
     ({
       String sanitizedPrompt,
@@ -282,6 +389,15 @@ class GeminiRemoteDataSource {
     GeminiContextSnapshot? contextSnapshot,
   }) async {
     await _purgeLegacyUnscopedKeys();
+    final storedConfig = await readConfig(userId: userId);
+    if (!config.enabled || !storedConfig.enabled || !_cloudAiConsentGranted) {
+      throw const AppException(
+        code: 'GEMINI_CONSENT_REQUIRED',
+        message:
+            'Chưa bật đồng ý chia sẻ với Gemini Cloud; tiếp tục xử lý hoàn toàn trên máy.',
+      );
+    }
+
     final uid = _resolveUid(userId);
     final apiKey = uid != null
         ? (await _vault.readSecret(_apiKeyVaultKey(uid)) ?? '').trim()
@@ -293,31 +409,14 @@ class GeminiRemoteDataSource {
       );
     }
 
-    // SEC-F04: ALWAYS run OtpRedactor even if maskSensitiveInfo toggle is off!
-    final safeInput = config.maskSensitiveInfo
-        ? GeminiPrivacySanitizer.sanitize(rawInput)
-        : OtpRedactor.redact(rawInput);
-
-    final contextLine = contextSnapshot == null
-        ? ''
-        : '\nNgữ cảnh tóm tắt ẩn danh (VND nguyên): Thu tháng=${contextSnapshot.monthlyIncomeMinor}, '
-              'Chi tháng=${contextSnapshot.monthlyExpenseMinor}, '
-              'Mức an toàn/ngày=${contextSnapshot.safeDailyAllowanceMinor}, '
-              'Lịch sắp tới=${contextSnapshot.upcomingEventsCount}, '
-              'Việc đang mở=${contextSnapshot.openTasksCount}, '
-              'Thói quen=${contextSnapshot.topHabitLabels.join(", ")}.';
-
-    final systemPrompt =
-        'Bạn là Trợ lý Tài chính & Nhịp sống thông minh của siêu ứng dụng Life OS tại Việt Nam. '
-        'Thời điểm tham chiếu hiện tại: ${referenceNow.toIso8601String()}.$contextLine\n'
-        'Nhiệm vụ: Phân tích câu tiếng Việt tự nhiên của người dùng thành JSON cấu trúc chặt chẽ gồm:\n'
-        '1. "assistantInsightVi": Nhận xét hoặc lời khuyên ngắn gọn, ấm áp, hữu ích (1-2 câu tiếng Việt, không dùng thuật ngữ kỹ thuật).\n'
-        '2. "transactions": Mảng các giao dịch thu/chi [{"type":"expense"|"income","amountMinor":số_nguyên_VND,"categoryName":"Ăn uống"|"Xe cộ & Di chuyển"|"Điện/Nước/Internet"|"Chợ & Mua sắm"|"Việc nhà & Gia dụng"|"Nhà cửa & Thuê nhà"|"Sức khỏe & Giáo dục"|"Giải trí & Đăng ký"|"Lương & Thu nhập"|"Chi tiêu khác","merchant":"mô tả ngắn"}]. Lưu ý: 55k = 55000, 1tr5 = 1500000. Không tạo giao dịch nếu câu chỉ hỏi thông tin hoặc báo hủy.\n'
-        '3. "groupSplits": Mảng chia hóa đơn nhóm [{"title":"mô tả","amountMinor":số_nguyên_VND,"participantCount":số_người>=2}].\n'
-        '4. "calendarEvents": Mảng lịch hẹn có thời gian cụ thể [{"title":"tiêu đề","startsAtIso":"ISO8601","durationMinutes":60,"location":""}].\n'
-        '5. "tasks": Mảng việc cần làm / nhắc nhở [{"title":"tiêu đề","dueAtIso":"ISO8601","priority":"low"|"medium"|"high"}].\n'
-        '6. "groceries": Mảng món cần mua đi chợ khi chưa thanh toán tiền [{"name":"tên món","quantityLabel":"1 phần","estimatedMinor":0}].\n'
-        '7. "waterLogs": Mảng lượng nước lọc uống vào cơ thể [{"waterMl":250}].';
+    final prepared = buildSanitizedPromptPayload(
+      rawInput: rawInput,
+      maskSensitiveInfo: config.maskSensitiveInfo,
+      referenceNow: referenceNow,
+      contextSnapshot: contextSnapshot,
+    );
+    final safeInput = prepared.safeInput;
+    final systemPrompt = prepared.systemPrompt;
 
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/${config.modelId}:generateContent',

@@ -13,12 +13,25 @@ import '../../domain/repositories/document_vault_repository.dart';
 class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
   final FirebaseFirestore _firestore;
   final FileStorageService _fileStorage;
+  final String? _customVaultRootPath;
   static const Uuid _uuid = Uuid();
 
   const DocumentVaultRepositoryImpl(
     this._firestore, {
     FileStorageService? fileStorage,
-  }) : _fileStorage = fileStorage ?? const SparkSafeFileStorageService();
+    String? customVaultRootPath,
+  }) : _fileStorage = fileStorage ?? const SparkSafeFileStorageService(),
+       _customVaultRootPath = customVaultRootPath;
+
+  SparkSafeFileStorageService get _pendingVaultHelper {
+    final storage = _fileStorage;
+    if (storage is SparkSafeFileStorageService) {
+      return storage;
+    }
+    return SparkSafeFileStorageService(
+      customVaultRootPath: _customVaultRootPath,
+    );
+  }
 
   DocumentReference<Map<String, dynamic>> _docRef({
     required String userId,
@@ -465,13 +478,49 @@ class DocumentVaultRepositoryImpl implements DocumentVaultRepository {
         (document.localAttachmentStorageKey != null &&
             document.localAttachmentStorageKey!.isNotEmpty);
     if (hasAttachmentRef) {
-      await _fileStorage.deleteAttachmentForUser(
-        userId: userId,
-        attachmentId: document.attachmentId,
-        legacyLocalPath: document.localEncryptedPath,
-        legacyStorageKey: document.localAttachmentStorageKey,
-      );
+      var localDeleted = false;
+      try {
+        localDeleted = await _fileStorage.deleteAttachmentForUser(
+          userId: userId,
+          attachmentId: document.attachmentId,
+          legacyLocalPath: document.localEncryptedPath,
+          legacyStorageKey: document.localAttachmentStorageKey,
+        );
+      } catch (_) {
+        localDeleted = false;
+      }
+      if (!localDeleted) {
+        await _pendingVaultHelper.recordPendingCleanup(
+          userId: userId,
+          attachmentId: document.attachmentId,
+          legacyLocalPath: document.localEncryptedPath,
+          legacyStorageKey: document.localAttachmentStorageKey,
+        );
+        return Err(
+          DocumentCleanupFailureCodes.createPendingLocalCleanupFailure(),
+        );
+      }
     }
     return const Success(null);
+  }
+
+  /// Returns durable pending local cleanup entries recorded for [userId].
+  Future<List<PendingVaultCleanupRecord>> loadPendingLocalCleanups(
+    String userId,
+  ) => _pendingVaultHelper.loadPendingCleanups(userId);
+
+  /// True when [userId] has local attachment erasures queued in `pending_cleanups.json`.
+  Future<bool> hasPendingLocalCleanups(String userId) async {
+    final pending = await loadPendingLocalCleanups(userId);
+    return pending.isNotEmpty;
+  }
+
+  /// Retries all durable pending local cleanups for [userId], returning the
+  /// remaining pending count (`0` when all local attachments are cleanly erased).
+  Future<int> retryPendingLocalCleanups(String userId) {
+    return _pendingVaultHelper.retryPendingCleanups(
+      userId,
+      deleteDelegate: _fileStorage.deleteAttachmentForUser,
+    );
   }
 }

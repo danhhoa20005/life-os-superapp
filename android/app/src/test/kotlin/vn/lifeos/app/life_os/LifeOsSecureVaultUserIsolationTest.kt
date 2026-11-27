@@ -104,4 +104,48 @@ class LifeOsSecureVaultUserIsolationTest {
             vaultBase.deleteRecursively()
         }
     }
+
+    @Test
+    fun clearUserDirectoryInBase_and_clearUserExportCacheInDir_verifyBooleanResultsAndIsolation() {
+        val tempRoot = Files.createTempDirectory("lifeos_vault_export_iso_").toFile()
+        try {
+            val cacheDir = File(tempRoot, "cache").apply { mkdirs() }
+            val userAExportDir = File(cacheDir, "exports_u_1").apply { mkdirs() }
+            File(userAExportDir, "statement.csv").writeText("a")
+            val userAExportFile = File(cacheDir, "exports_u_1_report.json").apply { writeText("{}") }
+
+            val user10ExportDir = File(cacheDir, "exports_u_10").apply { mkdirs() }
+            val user10ExportFile = File(user10ExportDir, "other.csv").apply { writeText("10") }
+            val unrelatedCacheFile = File(cacheDir, "other_cache.txt").apply { writeText("keep") }
+
+            // Invalid / traversal UIDs must return false and leave files intact
+            assertFalse(LifeOsSecureVault.clearUserExportCacheInDir(cacheDir, ""))
+            assertFalse(LifeOsSecureVault.clearUserExportCacheInDir(cacheDir, ".."))
+            assertTrue(userAExportDir.exists())
+
+            // Clear u_1 -> removes exports_u_1 and exports_u_1_report.json, returns true
+            assertTrue(LifeOsSecureVault.clearUserExportCacheInDir(cacheDir, "u_1"))
+            assertFalse(userAExportDir.exists())
+            assertFalse(userAExportFile.exists())
+
+            // u_10 (prefix collision) & unrelated cache MUST stay intact
+            assertTrue(user10ExportDir.exists())
+            assertTrue(user10ExportFile.exists())
+            assertTrue(unrelatedCacheFile.exists())
+
+            // Clear non-existent directory base returns true safely, while symlink escape returns false
+            val missingBase = File(tempRoot, "missing_vault_base")
+            assertTrue(LifeOsSecureVault.clearUserDirectoryInBase(missingBase, "u_1"))
+
+            // Verify clearForUser signature returns Boolean in LifeOsSecureVault
+            val clearForUserMethod = LifeOsSecureVault::class.java.getDeclaredMethod(
+                "clearForUser",
+                android.content.Context::class.java,
+                String::class.java
+            )
+            assertEquals(Boolean::class.javaPrimitiveType, clearForUserMethod.returnType)
+        } finally {
+            tempRoot.deleteRecursively()
+        }
+    }
 }

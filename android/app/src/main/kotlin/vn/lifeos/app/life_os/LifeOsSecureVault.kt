@@ -466,13 +466,68 @@ object LifeOsSecureVault {
     }
 
     /**
-     * Account-scoped secret & document vault cleanup (H4).
-     * Never wipes other users' SharedPreferences keys or vault subdirectories.
+     * Removes UID-scoped export cache directories/files (`cacheDir/exports_<safeUid>`
+     * or `cacheDir/exports_<safeUid>_*` / `exports_<safeUid>.*`) strictly inside [cacheDir],
+     * returning `true` only when every matching target is verified removed.
      */
-    fun clearForUser(context: Context, userId: String) {
+    internal fun clearUserExportCacheInDir(cacheDir: File, userId: String): Boolean {
+        val safeUid = sanitizeUserIdSegmentOrNull(userId.trim()) ?: return false
+        if (!cacheDir.exists() || !cacheDir.isDirectory) {
+            return true
+        }
+        val cacheCanonical = try {
+            cacheDir.canonicalFile
+        } catch (_: Exception) {
+            return false
+        }
+
+        val exactName = "exports_$safeUid"
+        val underscorePrefix = "exports_${safeUid}_"
+        val dotPrefix = "exports_${safeUid}."
+        var allOk = true
+
+        val entries = cacheDir.listFiles() ?: return true
+        for (entry in entries) {
+            val name = entry.name
+            val matchesUser = name == exactName ||
+                name.startsWith(underscorePrefix) ||
+                name.startsWith(dotPrefix)
+            if (!matchesUser) continue
+
+            if (isSymbolicLinkOrAliased(cacheCanonical, entry)) {
+                // Reject symlinks escaping cacheDir without following target; unlink link itself if inside.
+                if (!entry.delete() && entry.exists()) {
+                    allOk = false
+                }
+                continue
+            }
+
+            if (entry.isDirectory) {
+                if (!deleteDirectorySafely(entry, cacheCanonical)) {
+                    allOk = false
+                }
+            } else {
+                if (!entry.delete() && entry.exists()) {
+                    allOk = false
+                }
+            }
+            if (entry.exists()) {
+                allOk = false
+            }
+        }
+        return allOk
+    }
+
+    /**
+     * Account-scoped secret & document vault cleanup (H4 + VAULT-03).
+     * Never wipes other users' SharedPreferences keys or vault subdirectories.
+     * Returns `true` ONLY when `noBackupFilesDir`, `filesDir`, and UID-scoped
+     * `cacheDir/exports_<safeUid>` are all verified removed.
+     */
+    fun clearForUser(context: Context, userId: String): Boolean {
         val trimmed = userId.trim()
         if (sanitizeUserIdSegmentOrNull(trimmed) == null) {
-            return
+            return false
         }
         val appCtx = context.applicationContext
         val prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -485,12 +540,12 @@ object LifeOsSecureVault {
                 removedAny = true
             }
         }
-        if (removedAny) {
-            editor.apply()
-        }
+        val prefsOk = if (removedAny) editor.commit() else true
 
-        clearUserDirectoryInBase(File(appCtx.noBackupFilesDir, VAULT_DIR_NAME), trimmed)
-        clearUserDirectoryInBase(File(appCtx.filesDir, VAULT_DIR_NAME), trimmed)
+        val noBackupOk = clearUserDirectoryInBase(File(appCtx.noBackupFilesDir, VAULT_DIR_NAME), trimmed)
+        val filesOk = clearUserDirectoryInBase(File(appCtx.filesDir, VAULT_DIR_NAME), trimmed)
+        val exportCacheOk = clearUserExportCacheInDir(appCtx.cacheDir, trimmed)
+        return prefsOk && noBackupOk && filesOk && exportCacheOk
     }
 
     fun clearAll(context: Context) {

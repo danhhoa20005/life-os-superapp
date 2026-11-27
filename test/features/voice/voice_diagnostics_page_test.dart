@@ -128,7 +128,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 1. Pre-bundled audio models card is immediately visible without technical clutter
+      // 1. Offline audio/ASR card truthfully displays runtime unavailable status (AI-01)
       await tester.scrollUntilVisible(
         find.byKey(const Key('voice_diag_models_card')),
         200,
@@ -138,19 +138,25 @@ void main() {
       expect(find.byKey(const Key('voice_diag_models_card')), findsOneWidget);
       expect(
         find.byKey(
-          Key('voice_model_installed_${LocalAsrModelCatalog.voskSmallVn.id}'),
+          Key('voice_model_unavailable_${LocalAsrModelCatalog.voskSmallVn.id}'),
         ),
         findsOneWidget,
       );
       expect(
         find.byKey(
           Key(
-            'voice_model_installed_${LocalAsrModelCatalog.sherpaZipformerViInt8.id}',
+            'voice_model_unavailable_${LocalAsrModelCatalog.sherpaZipformerViInt8.id}',
           ),
         ),
         findsOneWidget,
       );
-      expect(find.text('✓ Đã tải sẵn & Kích hoạt'), findsWidgets);
+      expect(
+        find.text(
+          'Chưa tích hợp bộ chạy offline (Dùng Android trên máy hoặc nhập tay)',
+        ),
+        findsNWidgets(LocalAsrModelCatalog.defaults.length),
+      );
+      expect(find.text('✓ Đã tải sẵn & Kích hoạt'), findsNothing);
 
       // 2. Expand 'Chế độ nâng cao & Thông số kỹ thuật (IT)' to inspect SDK & Monotonic latencies
       await tester.scrollUntilVisible(

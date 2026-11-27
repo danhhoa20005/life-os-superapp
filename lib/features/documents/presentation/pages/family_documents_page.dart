@@ -77,14 +77,18 @@ class _FamilyDocumentsPageState extends State<FamilyDocumentsPage> {
           _searchCtrl.clear();
         }
         if (state.failure != null) {
-          LifeOsTopToast.fromSnackBar(
+          LifeOsTopToast.show(
             context,
-            SnackBar(content: Text('⚠ ${state.failure!.message}')),
+            '⚠ ${state.failure!.message}',
+            kind: state.pendingLocalCleanup
+                ? LifeOsToastKind.warning
+                : LifeOsToastKind.error,
           );
         } else if (state.message != null) {
-          LifeOsTopToast.fromSnackBar(
+          LifeOsTopToast.show(
             context,
-            SnackBar(content: Text('✓ ${state.message!}')),
+            '✓ ${state.message!}',
+            kind: LifeOsToastKind.success,
           );
         }
       },

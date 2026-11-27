@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -70,6 +72,47 @@ abstract interface class FileStorageService {
   });
 }
 
+/// Durable record of a local encrypted attachment whose deletion failed and
+/// must be retried safely within `<vaultRoot>/<safeUid>/pending_cleanups.json`.
+final class PendingVaultCleanupRecord {
+  final String? attachmentId;
+  final String? legacyLocalPath;
+  final String? legacyStorageKey;
+  final DateTime timestamp;
+
+  const PendingVaultCleanupRecord({
+    this.attachmentId,
+    this.legacyLocalPath,
+    this.legacyStorageKey,
+    required this.timestamp,
+  });
+
+  String get dedupKey =>
+      '${attachmentId ?? ''}|${legacyStorageKey ?? ''}|${legacyLocalPath ?? ''}';
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    if (attachmentId != null && attachmentId!.isNotEmpty)
+      'attachmentId': attachmentId,
+    if (legacyLocalPath != null && legacyLocalPath!.isNotEmpty)
+      'legacyLocalPath': legacyLocalPath,
+    if (legacyStorageKey != null && legacyStorageKey!.isNotEmpty)
+      'legacyStorageKey': legacyStorageKey,
+    'timestamp': timestamp.toUtc().toIso8601String(),
+  };
+
+  factory PendingVaultCleanupRecord.fromJson(Map<String, dynamic> json) {
+    final rawTs = json['timestamp']?.toString();
+    return PendingVaultCleanupRecord(
+      attachmentId: json['attachmentId']?.toString(),
+      legacyLocalPath: json['legacyLocalPath']?.toString(),
+      legacyStorageKey: json['legacyStorageKey']?.toString(),
+      timestamp:
+          (rawTs != null ? DateTime.tryParse(rawTs) : null) ??
+          DateTime.now().toUtc(),
+    );
+  }
+}
+
 /// Spark-safe Private On-Device Encrypted Document Vault (`SparkSafeFileStorageService`):
 /// - Keeps Cloud Firebase strictly on Spark $0/month (NEVER writes binary blobs into Firestore).
 /// - Encrypts every attachment with authenticated AES-256-GCM (Android Keystore) / AEAD ("LOSV")
@@ -78,8 +121,15 @@ abstract interface class FileStorageService {
 class SparkSafeFileStorageService implements FileStorageService {
   static const int maxAttachmentBytes = 15 * 1024 * 1024; // 15 MB safety cap
   static const String attachmentIndexFileName = 'attachment_index.json';
+  static const String attachmentIndexBackupFileName =
+      'attachment_index.json.bak';
+  static const String pendingCleanupsFileName = 'pending_cleanups.json';
   static final RegExp validAttachmentIdRegex = RegExp(r'^[A-Za-z0-9_-]{8,96}$');
   static const Uuid _uuid = Uuid();
+
+  static final Map<String, Future<void>> _indexLocks = <String, Future<void>>{};
+  static int _atomicWriteCounter = 0;
+  static final Random _nonceRandom = Random.secure();
 
   static final Map<String, Uint8List> _ephemeralWebVault =
       <String, Uint8List>{};
@@ -87,6 +137,8 @@ class SparkSafeFileStorageService implements FileStorageService {
   _ephemeralWebMeta = <String, ({String sha256, int encryptedSize})>{};
   static final Map<String, String> _ephemeralWebAttachmentIndex =
       <String, String>{};
+  static final Map<String, List<PendingVaultCleanupRecord>>
+  _ephemeralWebPendingCleanups = <String, List<PendingVaultCleanupRecord>>{};
 
   final String? customVaultRootPath;
   final NativeSecureVaultBridge? _vaultBridgeOverride;
@@ -144,14 +196,17 @@ class SparkSafeFileStorageService implements FileStorageService {
         trimmed != value ||
         trimmed == '.' ||
         trimmed == '..' ||
-        trimmed == attachmentIndexFileName) {
+        trimmed == attachmentIndexFileName ||
+        trimmed == attachmentIndexBackupFileName ||
+        trimmed == pendingCleanupsFileName) {
       return false;
     }
     if (trimmed.contains('/') ||
         trimmed.contains(r'\') ||
         trimmed.contains('\x00') ||
         trimmed.contains('..') ||
-        trimmed.contains(':')) {
+        trimmed.contains(':') ||
+        trimmed.contains('.tmp.')) {
       return false;
     }
     return true;
@@ -345,26 +400,80 @@ class SparkSafeFileStorageService implements FileStorageService {
     return dir.existsSync() ? dir : null;
   }
 
-  static File _metaFileFor(File encFile) => File('${encFile.path}.meta');
+  static File _metaJsonFileFor(File encFile) {
+    final p = encFile.path;
+    if (p.toLowerCase().endsWith('.enc')) {
+      return File('${p.substring(0, p.length - 4)}.meta.json');
+    }
+    return File('$p.meta.json');
+  }
+
+  static File _legacyMetaFileFor(File encFile) => File('${encFile.path}.meta');
 
   static File _indexFileFor(Directory userVaultDir) => File(
     '${userVaultDir.path}${Platform.pathSeparator}$attachmentIndexFileName',
   );
 
-  static Future<Map<String, String>> _loadAttachmentIndex(
-    Directory userVaultDir,
+  static File _indexBackupFileFor(Directory userVaultDir) => File(
+    '${userVaultDir.path}${Platform.pathSeparator}$attachmentIndexBackupFileName',
+  );
+
+  static File _pendingCleanupsFileFor(Directory userVaultDir) => File(
+    '${userVaultDir.path}${Platform.pathSeparator}$pendingCleanupsFileName',
+  );
+
+  static String _nextAtomicNonce() {
+    _atomicWriteCounter += 1;
+    final rand = _nonceRandom.nextInt(0x7FFFFFFF).toRadixString(36);
+    return '${DateTime.now().microsecondsSinceEpoch}_${_atomicWriteCounter}_$rand';
+  }
+
+  /// Per-UID async FIFO mutex serializing all `attachment_index.json` and
+  /// `pending_cleanups.json` reads/writes for [safeUid].
+  static Future<T> _withIndexLock<T>(
+    String safeUid,
+    Future<T> Function() action,
   ) async {
-    final indexFile = _indexFileFor(userVaultDir);
-    if (!indexFile.existsSync()) return <String, String>{};
+    final prev = _indexLocks[safeUid] ?? Future<void>.value();
+    final completer = Completer<void>();
+    final tail = prev.catchError((_) {}).then((_) => completer.future);
+    _indexLocks[safeUid] = tail;
+    try {
+      await prev.catchError((_) {});
+      return await action();
+    } finally {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+      if (identical(_indexLocks[safeUid], tail)) {
+        unawaited(
+          tail.whenComplete(() {
+            if (identical(_indexLocks[safeUid], tail)) {
+              _indexLocks.remove(safeUid);
+            }
+          }),
+        );
+      }
+    }
+  }
+
+  static Map<String, String>? _tryParseValidIndexMap(
+    File candidate,
+    Directory userVaultDir,
+  ) {
+    if (!candidate.existsSync()) return null;
+    if (FileSystemEntity.isLinkSync(candidate.path)) return null;
     if (!isCanonicalPathStrictlyInsideDirectory(
       userVaultDir: userVaultDir,
-      candidateFile: indexFile,
+      candidateFile: candidate,
     )) {
-      return <String, String>{};
+      return null;
     }
     try {
-      final decoded = jsonDecode(await indexFile.readAsString());
-      if (decoded is! Map) return <String, String>{};
+      final raw = candidate.readAsStringSync();
+      if (raw.trim().isEmpty) return null;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
       final out = <String, String>{};
       decoded.forEach((key, value) {
         final attId = key?.toString();
@@ -375,22 +484,252 @@ class SparkSafeFileStorageService implements FileStorageService {
       });
       return out;
     } catch (_) {
-      return <String, String>{};
+      return null;
     }
   }
 
-  static Future<void> _saveAttachmentIndex(
-    Directory userVaultDir,
-    Map<String, String> index,
-  ) async {
+  static bool _hasLosvMagicHeader(File encFile) {
+    RandomAccessFile? raf;
+    try {
+      if (!encFile.existsSync() || FileSystemEntity.isLinkSync(encFile.path)) {
+        return false;
+      }
+      final len = encFile.lengthSync();
+      if (len < NativeSecureVaultBridge.magicHeaderBytes.length) return false;
+      raf = encFile.openSync(mode: FileMode.read);
+      final header = raf.readSync(
+        NativeSecureVaultBridge.magicHeaderBytes.length,
+      );
+      if (header.length < NativeSecureVaultBridge.magicHeaderBytes.length) {
+        return false;
+      }
+      for (
+        var i = 0;
+        i < NativeSecureVaultBridge.magicHeaderBytes.length;
+        i++
+      ) {
+        if (header[i] != NativeSecureVaultBridge.magicHeaderBytes[i]) {
+          return false;
+        }
+      }
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      try {
+        raf?.closeSync();
+      } catch (_) {}
+    }
+  }
+
+  static Map<String, String> _recoverIndexFromBackupAndMetaUnlocked(
+    Directory userVaultDir, {
+    required String safeUid,
+  }) {
+    final recovered = <String, String>{};
+
+    // 1. Attempt recovery from `attachment_index.json.bak` first (filtering to
+    //    files that genuinely exist inside `userVaultDir`).
+    final bakFile = _indexBackupFileFor(userVaultDir);
+    final bakMap = _tryParseValidIndexMap(bakFile, userVaultDir);
+    if (bakMap != null) {
+      bakMap.forEach((attId, fileName) {
+        final candidate = File(
+          '${userVaultDir.path}${Platform.pathSeparator}$fileName',
+        );
+        if (candidate.existsSync() &&
+            !FileSystemEntity.isLinkSync(candidate.path) &&
+            isCanonicalPathStrictlyInsideDirectory(
+              userVaultDir: userVaultDir,
+              candidateFile: candidate,
+            )) {
+          recovered[attId] = fileName;
+        }
+      });
+    }
+
+    // 2. Scan verified `*.meta.json` (and legacy `*.enc.meta`) sidecars inside
+    //    `<vaultRoot>/<safeUid>/` so attachments added after the last `.bak`
+    //    rotation are ALSO recovered without silent loss!
+    try {
+      for (final entity in userVaultDir.listSync(followLinks: false)) {
+        if (entity is! File || FileSystemEntity.isLinkSync(entity.path)) {
+          continue;
+        }
+        if (!isCanonicalPathStrictlyInsideDirectory(
+          userVaultDir: userVaultDir,
+          candidateFile: entity,
+        )) {
+          continue;
+        }
+        final name = entity.uri.pathSegments.isNotEmpty
+            ? entity.uri.pathSegments.last
+            : entity.path.split(Platform.pathSeparator).last;
+        if (name == attachmentIndexFileName ||
+            name == attachmentIndexBackupFileName ||
+            name == pendingCleanupsFileName ||
+            name.contains('.tmp.')) {
+          continue;
+        }
+        final isMetaJson = name.endsWith('.meta.json');
+        final isLegacyMeta = name.endsWith('.enc.meta');
+        if (!isMetaJson && !isLegacyMeta) continue;
+
+        try {
+          final decoded = jsonDecode(entity.readAsStringSync());
+          if (decoded is! Map) continue;
+          final metaOwner = decoded['ownerId']?.toString();
+          if (metaOwner != null &&
+              metaOwner.trim().isNotEmpty &&
+              _sanitizeUidOrNull(metaOwner) != safeUid) {
+            continue;
+          }
+          final attId = decoded['attachmentId']?.toString();
+          if (!isValidAttachmentId(attId)) continue;
+
+          String? storageKey = decoded['storageKey']?.toString();
+          if (!isSingleSafeFileName(storageKey)) {
+            if (isMetaJson) {
+              storageKey = '${name.substring(0, name.length - 10)}.enc';
+            } else {
+              storageKey = name.substring(0, name.length - 5);
+            }
+          }
+          if (!isSingleSafeFileName(storageKey)) continue;
+
+          final encFile = File(
+            '${userVaultDir.path}${Platform.pathSeparator}$storageKey',
+          );
+          if (!isCanonicalPathStrictlyInsideDirectory(
+            userVaultDir: userVaultDir,
+            candidateFile: encFile,
+          )) {
+            continue;
+          }
+          if (!_hasLosvMagicHeader(encFile)) continue;
+
+          final expectedEncSize = (decoded['encryptedSizeBytes'] as num?)
+              ?.toInt();
+          if (expectedEncSize != null &&
+              encFile.lengthSync() != expectedEncSize) {
+            continue;
+          }
+
+          recovered[attId!] = storageKey!;
+        } catch (_) {
+          // Ignore malformed individual meta sidecar and keep scanning others.
+        }
+      }
+    } catch (_) {}
+
+    return recovered;
+  }
+
+  static Future<Map<String, String>> _loadAttachmentIndexUnlocked(
+    Directory userVaultDir, {
+    required String safeUid,
+  }) async {
     final indexFile = _indexFileFor(userVaultDir);
+    if (indexFile.existsSync()) {
+      final parsed = _tryParseValidIndexMap(indexFile, userVaultDir);
+      if (parsed != null) {
+        return parsed;
+      }
+      // Corrupted or truncated `attachment_index.json` -> recover from `.bak` / `*.meta.json`!
+      final recovered = _recoverIndexFromBackupAndMetaUnlocked(
+        userVaultDir,
+        safeUid: safeUid,
+      );
+      if (recovered.isNotEmpty) {
+        try {
+          await _saveAttachmentIndexAtomicUnlocked(
+            userVaultDir,
+            recovered,
+            backupCurrent: false,
+          );
+        } catch (_) {}
+      }
+      return recovered;
+    }
+
+    // Index missing completely: check if `.bak` or `*.meta.json` exist to rebuild.
+    final recovered = _recoverIndexFromBackupAndMetaUnlocked(
+      userVaultDir,
+      safeUid: safeUid,
+    );
+    if (recovered.isNotEmpty) {
+      try {
+        await _saveAttachmentIndexAtomicUnlocked(
+          userVaultDir,
+          recovered,
+          backupCurrent: false,
+        );
+      } catch (_) {}
+    }
+    return recovered;
+  }
+
+  static Future<void> _saveAttachmentIndexAtomicUnlocked(
+    Directory userVaultDir,
+    Map<String, String> index, {
+    bool backupCurrent = true,
+  }) async {
+    final indexFile = _indexFileFor(userVaultDir);
+    final bakFile = _indexBackupFileFor(userVaultDir);
+    if (!isCanonicalPathStrictlyInsideDirectory(
+      userVaultDir: userVaultDir,
+      candidateFile: indexFile,
+    )) {
+      throw const VaultSecurityException(
+        'Attachment index path escapes user vault directory.',
+      );
+    }
+
     final clean = <String, String>{};
     index.forEach((key, value) {
       if (isValidAttachmentId(key) && isSingleSafeFileName(value)) {
         clean[key] = value;
       }
     });
-    await indexFile.writeAsString(jsonEncode(clean), flush: true);
+
+    final nonce = _nextAtomicNonce();
+    final tmpFile = File(
+      '${userVaultDir.path}${Platform.pathSeparator}$attachmentIndexFileName.tmp.$nonce',
+    );
+    final bakTmpFile = File(
+      '${userVaultDir.path}${Platform.pathSeparator}$attachmentIndexBackupFileName.tmp.$nonce',
+    );
+
+    try {
+      tmpFile.writeAsStringSync(jsonEncode(clean), flush: true);
+
+      if (backupCurrent &&
+          indexFile.existsSync() &&
+          !FileSystemEntity.isLinkSync(indexFile.path) &&
+          isCanonicalPathStrictlyInsideDirectory(
+            userVaultDir: userVaultDir,
+            candidateFile: indexFile,
+          )) {
+        final currentParsed = _tryParseValidIndexMap(indexFile, userVaultDir);
+        if (currentParsed != null) {
+          bakTmpFile.writeAsStringSync(jsonEncode(currentParsed), flush: true);
+          bakTmpFile.renameSync(bakFile.path);
+        }
+      }
+
+      tmpFile.renameSync(indexFile.path);
+    } finally {
+      if (tmpFile.existsSync()) {
+        try {
+          tmpFile.deleteSync();
+        } catch (_) {}
+      }
+      if (bakTmpFile.existsSync()) {
+        try {
+          bakTmpFile.deleteSync();
+        } catch (_) {}
+      }
+    }
   }
 
   @override
@@ -420,13 +759,15 @@ class SparkSafeFileStorageService implements FileStorageService {
     }
 
     final safeUid = _sanitizeUid(userId);
-    final safeFolder = folder.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
     final safeName = fileName
         .replaceAll(RegExp(r'[^a-zA-Z0-9._\-]'), '_')
         .replaceAll('..', '_');
     final digest = sha256.convert(bytes).toString();
-    final rawKey = '${safeFolder}_${digest.substring(0, 12)}_$safeName';
-    final key = rawKey.endsWith('.enc') ? rawKey : '$rawKey.enc';
+    final attachmentId =
+        'att_${digest.substring(0, 12)}_${_uuid.v4().replaceAll('-', '').substring(0, 12)}';
+    // VAULT-01: Each attachment receives a unique physical filename `<attachmentId>.enc`
+    // and `<attachmentId>.meta.json` so duplicate uploads never share a physical path.
+    final key = '$attachmentId.enc';
     if (!isSingleSafeFileName(key)) {
       return const Err(
         ValidationFailure(
@@ -435,8 +776,6 @@ class SparkSafeFileStorageService implements FileStorageService {
         ),
       );
     }
-    final attachmentId =
-        'att_${digest.substring(0, 12)}_${_uuid.v4().replaceAll('-', '').substring(0, 12)}';
     final aad = _buildAad(userId, key);
 
     if (kIsWeb) {
@@ -483,11 +822,15 @@ class SparkSafeFileStorageService implements FileStorageService {
         aad: aad,
       );
       await targetFile.writeAsBytes(cipherPack, flush: true);
-      final metaFile = _metaFileFor(targetFile);
+      final metaFile = _metaJsonFileFor(targetFile);
       await metaFile.writeAsString(
         jsonEncode(<String, dynamic>{
           'ownerId': userId,
           'attachmentId': attachmentId,
+          'storageKey': key,
+          'folder': folder,
+          'originalFileName': safeName,
+          'mimeType': mimeType,
           'plaintextSha256': digest,
           'plaintextSizeBytes': bytes.lengthInBytes,
           'encryptedSizeBytes': cipherPack.lengthInBytes,
@@ -495,9 +838,11 @@ class SparkSafeFileStorageService implements FileStorageService {
         flush: true,
       );
 
-      final index = await _loadAttachmentIndex(dir);
-      index[attachmentId] = key;
-      await _saveAttachmentIndex(dir, index);
+      await _withIndexLock(safeUid, () async {
+        final index = await _loadAttachmentIndexUnlocked(dir, safeUid: safeUid);
+        index[attachmentId] = key;
+        await _saveAttachmentIndexAtomicUnlocked(dir, index);
+      });
 
       return Success(
         StoredFileReference(
@@ -592,16 +937,21 @@ class SparkSafeFileStorageService implements FileStorageService {
 
     String? resolvedFileName;
     if (trimmedAttId != null && trimmedAttId.isNotEmpty) {
-      if (dir != null && dir.existsSync()) {
-        final idx = await _loadAttachmentIndex(dir);
-        resolvedFileName = idx[trimmedAttId];
-      }
-      if (resolvedFileName == null &&
-          legacyDir != null &&
-          legacyDir.existsSync()) {
-        final legacyIdx = await _loadAttachmentIndex(legacyDir);
-        resolvedFileName = legacyIdx[trimmedAttId];
-      }
+      resolvedFileName = await _withIndexLock(safeUid, () async {
+        if (dir != null && dir.existsSync()) {
+          final idx = await _loadAttachmentIndexUnlocked(dir, safeUid: safeUid);
+          final found = idx[trimmedAttId];
+          if (found != null) return found;
+        }
+        if (legacyDir != null && legacyDir.existsSync()) {
+          final legacyIdx = await _loadAttachmentIndexUnlocked(
+            legacyDir,
+            safeUid: safeUid,
+          );
+          return legacyIdx[trimmedAttId];
+        }
+        return null;
+      });
     }
     resolvedFileName ??= trimmedStorageKey;
 
@@ -665,7 +1015,9 @@ class SparkSafeFileStorageService implements FileStorageService {
 
     String? metaPlainSha;
     int? metaEncryptedSize;
-    final metaFile = _metaFileFor(f);
+    final jsonMetaFile = _metaJsonFileFor(f);
+    final legacyMetaFile = _legacyMetaFileFor(f);
+    final metaFile = jsonMetaFile.existsSync() ? jsonMetaFile : legacyMetaFile;
     if (metaFile.existsSync()) {
       try {
         final decoded = jsonDecode(await metaFile.readAsString());
@@ -747,10 +1099,16 @@ class SparkSafeFileStorageService implements FileStorageService {
         targetKey ??= indexed;
       }
       if (targetKey != null && targetKey.isNotEmpty) {
-        _ephemeralWebVault.remove('$safeUid/$targetKey');
-        _ephemeralWebMeta.remove('$safeUid/$targetKey');
-        _ephemeralWebVault.remove('$userId/$targetKey');
-        _ephemeralWebMeta.remove('$userId/$targetKey');
+        final prefix = '$safeUid/';
+        final stillReferenced = _ephemeralWebAttachmentIndex.entries.any(
+          (e) => e.key.startsWith(prefix) && e.value == targetKey,
+        );
+        if (!stillReferenced) {
+          _ephemeralWebVault.remove('$safeUid/$targetKey');
+          _ephemeralWebMeta.remove('$safeUid/$targetKey');
+          _ephemeralWebVault.remove('$userId/$targetKey');
+          _ephemeralWebMeta.remove('$userId/$targetKey');
+        }
       }
       return true;
     }
@@ -785,74 +1143,126 @@ class SparkSafeFileStorageService implements FileStorageService {
     }
 
     try {
-      final dir = await _resolveVaultDir(userId, createIfMissing: false);
-      final legacyDir = await _resolveLegacyVaultDir(userId);
-      final allowedDirs = <Directory>[
-        if (dir != null && dir.existsSync()) dir,
-        if (legacyDir != null && legacyDir.existsSync()) legacyDir,
-      ];
+      return await _withIndexLock(safeUid, () async {
+        final dir = await _resolveVaultDir(userId, createIfMissing: false);
+        final legacyDir = await _resolveLegacyVaultDir(userId);
+        final allowedDirs = <Directory>[
+          if (dir != null && dir.existsSync()) dir,
+          if (legacyDir != null && legacyDir.existsSync()) legacyDir,
+        ];
 
-      var deletedByIndex = false;
-      if (trimmedAttId != null && trimmedAttId.isNotEmpty) {
-        for (final vaultDir in allowedDirs) {
-          final index = await _loadAttachmentIndex(vaultDir);
-          final indexedFileName = index.remove(trimmedAttId);
-          if (indexedFileName != null &&
-              isSingleSafeFileName(indexedFileName)) {
-            final target = File(
-              '${vaultDir.path}${Platform.pathSeparator}$indexedFileName',
-            );
-            await unlinkIfExists(target, vaultDir);
-            await unlinkIfExists(_metaFileFor(target), vaultDir);
-            await _saveAttachmentIndex(vaultDir, index);
-            deletedByIndex = true;
-          }
-        }
-      }
-
-      if (!deletedByIndex) {
-        if (trimmedLegacyKey != null && trimmedLegacyKey.isNotEmpty) {
+        var deletedByIndex = false;
+        if (trimmedAttId != null && trimmedAttId.isNotEmpty) {
           for (final vaultDir in allowedDirs) {
-            final target = File(
-              '${vaultDir.path}${Platform.pathSeparator}$trimmedLegacyKey',
+            final index = await _loadAttachmentIndexUnlocked(
+              vaultDir,
+              safeUid: safeUid,
             );
-            await unlinkIfExists(target, vaultDir);
-            await unlinkIfExists(_metaFileFor(target), vaultDir);
-          }
-        }
-
-        final trimmedLegacyPath = legacyLocalPath?.trim();
-        if (trimmedLegacyPath != null && trimmedLegacyPath.isNotEmpty) {
-          final candidate = File(trimmedLegacyPath);
-          Directory? matchingBase;
-          for (final vaultDir in allowedDirs) {
-            if (isCanonicalPathStrictlyInsideDirectory(
-              userVaultDir: vaultDir,
-              candidateFile: candidate,
-            )) {
-              matchingBase = vaultDir;
-              break;
+            final indexedFileName = index.remove(trimmedAttId);
+            if (indexedFileName != null &&
+                isSingleSafeFileName(indexedFileName)) {
+              await _saveAttachmentIndexAtomicUnlocked(vaultDir, index);
+              final stillReferenced = index.values.any(
+                (name) => name == indexedFileName,
+              );
+              if (!stillReferenced) {
+                final target = File(
+                  '${vaultDir.path}${Platform.pathSeparator}$indexedFileName',
+                );
+                await unlinkIfExists(target, vaultDir);
+                await unlinkIfExists(_metaJsonFileFor(target), vaultDir);
+                await unlinkIfExists(_legacyMetaFileFor(target), vaultDir);
+              }
+              deletedByIndex = true;
             }
           }
-          if (matchingBase == null) {
-            // Strictly reject any path outside the user's vault directory!
-            return false;
-          }
-          final fileName = _resolveCanonicalPath(
-            candidate.path,
-          )?.split(Platform.pathSeparator).last;
-          if (fileName == attachmentIndexFileName) {
-            return false;
-          }
-          await unlinkIfExists(candidate, matchingBase);
-          await unlinkIfExists(_metaFileFor(candidate), matchingBase);
         }
-      }
+
+        if (!deletedByIndex) {
+          if (trimmedLegacyKey != null && trimmedLegacyKey.isNotEmpty) {
+            for (final vaultDir in allowedDirs) {
+              final index = await _loadAttachmentIndexUnlocked(
+                vaultDir,
+                safeUid: safeUid,
+              );
+              final matchingKeys = index.entries
+                  .where((e) => e.value == trimmedLegacyKey)
+                  .map((e) => e.key)
+                  .toList(growable: false);
+              if ((trimmedAttId == null || trimmedAttId.isEmpty) &&
+                  matchingKeys.length == 1) {
+                index.remove(matchingKeys.single);
+                await _saveAttachmentIndexAtomicUnlocked(vaultDir, index);
+              }
+              final stillReferenced = index.values.any(
+                (name) => name == trimmedLegacyKey,
+              );
+              if (!stillReferenced) {
+                final target = File(
+                  '${vaultDir.path}${Platform.pathSeparator}$trimmedLegacyKey',
+                );
+                await unlinkIfExists(target, vaultDir);
+                await unlinkIfExists(_metaJsonFileFor(target), vaultDir);
+                await unlinkIfExists(_legacyMetaFileFor(target), vaultDir);
+              }
+            }
+          }
+
+          final trimmedLegacyPath = legacyLocalPath?.trim();
+          if (trimmedLegacyPath != null && trimmedLegacyPath.isNotEmpty) {
+            final candidate = File(trimmedLegacyPath);
+            Directory? matchingBase;
+            for (final vaultDir in allowedDirs) {
+              if (isCanonicalPathStrictlyInsideDirectory(
+                userVaultDir: vaultDir,
+                candidateFile: candidate,
+              )) {
+                matchingBase = vaultDir;
+                break;
+              }
+            }
+            if (matchingBase == null) {
+              // Strictly reject any path outside the user's vault directory!
+              return false;
+            }
+            final fileName = _resolveCanonicalPath(
+              candidate.path,
+            )?.split(Platform.pathSeparator).last;
+            if (fileName == null ||
+                fileName == attachmentIndexFileName ||
+                fileName == attachmentIndexBackupFileName ||
+                fileName == pendingCleanupsFileName ||
+                fileName.contains('.tmp.')) {
+              return false;
+            }
+            final index = await _loadAttachmentIndexUnlocked(
+              matchingBase,
+              safeUid: safeUid,
+            );
+            final matchingKeys = index.entries
+                .where((e) => e.value == fileName)
+                .map((e) => e.key)
+                .toList(growable: false);
+            if ((trimmedAttId == null || trimmedAttId.isEmpty) &&
+                matchingKeys.length == 1) {
+              index.remove(matchingKeys.single);
+              await _saveAttachmentIndexAtomicUnlocked(matchingBase, index);
+            }
+            final stillReferenced = index.values.any(
+              (name) => name == fileName,
+            );
+            if (!stillReferenced) {
+              await unlinkIfExists(candidate, matchingBase);
+              await unlinkIfExists(_metaJsonFileFor(candidate), matchingBase);
+              await unlinkIfExists(_legacyMetaFileFor(candidate), matchingBase);
+            }
+          }
+        }
+        return allDeleted;
+      });
     } catch (_) {
       return false;
     }
-
-    return allDeleted;
   }
 
   /// Deletes an encrypted local attachment and its `.meta` sidecar, verifying
@@ -919,6 +1329,211 @@ class SparkSafeFileStorageService implements FileStorageService {
     }
   }
 
+  static List<PendingVaultCleanupRecord> _loadPendingCleanupsUnlocked(
+    Directory userVaultDir,
+  ) {
+    final file = _pendingCleanupsFileFor(userVaultDir);
+    if (!file.existsSync() || FileSystemEntity.isLinkSync(file.path)) {
+      return const <PendingVaultCleanupRecord>[];
+    }
+    if (!isCanonicalPathStrictlyInsideDirectory(
+      userVaultDir: userVaultDir,
+      candidateFile: file,
+    )) {
+      return const <PendingVaultCleanupRecord>[];
+    }
+    try {
+      final raw = file.readAsStringSync();
+      if (raw.trim().isEmpty) return const <PendingVaultCleanupRecord>[];
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const <PendingVaultCleanupRecord>[];
+      return decoded
+          .whereType<Map<dynamic, dynamic>>()
+          .map(
+            (e) => PendingVaultCleanupRecord.fromJson(
+              Map<String, dynamic>.from(e),
+            ),
+          )
+          .toList();
+    } catch (_) {
+      return const <PendingVaultCleanupRecord>[];
+    }
+  }
+
+  static void _savePendingCleanupsAtomicUnlocked(
+    Directory userVaultDir,
+    List<PendingVaultCleanupRecord> records,
+  ) {
+    final file = _pendingCleanupsFileFor(userVaultDir);
+    if (!isCanonicalPathStrictlyInsideDirectory(
+      userVaultDir: userVaultDir,
+      candidateFile: file,
+    )) {
+      throw const VaultSecurityException(
+        'Pending cleanups path escapes user vault directory.',
+      );
+    }
+    if (records.isEmpty) {
+      if (file.existsSync() && !FileSystemEntity.isLinkSync(file.path)) {
+        try {
+          file.deleteSync();
+        } catch (_) {}
+      }
+      return;
+    }
+    final nonce = _nextAtomicNonce();
+    final tmpFile = File(
+      '${userVaultDir.path}${Platform.pathSeparator}$pendingCleanupsFileName.tmp.$nonce',
+    );
+    try {
+      tmpFile.writeAsStringSync(
+        jsonEncode(records.map((r) => r.toJson()).toList()),
+        flush: true,
+      );
+      tmpFile.renameSync(file.path);
+    } finally {
+      if (tmpFile.existsSync()) {
+        try {
+          tmpFile.deleteSync();
+        } catch (_) {}
+      }
+    }
+  }
+
+  /// Persists a durable pending local attachment cleanup entry in
+  /// `<vaultRoot>/<safeUid>/pending_cleanups.json` when immediate deletion fails.
+  Future<void> recordPendingCleanup({
+    required String userId,
+    String? attachmentId,
+    String? legacyLocalPath,
+    String? legacyStorageKey,
+    DateTime? timestamp,
+  }) async {
+    final safeUid = _sanitizeUidOrNull(userId);
+    if (safeUid == null) return;
+    final record = PendingVaultCleanupRecord(
+      attachmentId: attachmentId?.trim().isNotEmpty == true
+          ? attachmentId!.trim()
+          : null,
+      legacyLocalPath: legacyLocalPath?.trim().isNotEmpty == true
+          ? legacyLocalPath!.trim()
+          : null,
+      legacyStorageKey: legacyStorageKey?.trim().isNotEmpty == true
+          ? legacyStorageKey!.trim()
+          : null,
+      timestamp: (timestamp ?? DateTime.now()).toUtc(),
+    );
+    if (record.attachmentId == null &&
+        record.legacyLocalPath == null &&
+        record.legacyStorageKey == null) {
+      return;
+    }
+
+    if (kIsWeb) {
+      final list = _ephemeralWebPendingCleanups.putIfAbsent(
+        safeUid,
+        () => <PendingVaultCleanupRecord>[],
+      );
+      list.removeWhere((e) => e.dedupKey == record.dedupKey);
+      list.add(record);
+      return;
+    }
+
+    await _withIndexLock(safeUid, () async {
+      final dir = await _resolveVaultDir(userId, createIfMissing: true);
+      if (dir == null) return;
+      final existing = List<PendingVaultCleanupRecord>.from(
+        _loadPendingCleanupsUnlocked(dir),
+      );
+      existing.removeWhere((e) => e.dedupKey == record.dedupKey);
+      existing.add(record);
+      _savePendingCleanupsAtomicUnlocked(dir, existing);
+    });
+  }
+
+  Future<List<PendingVaultCleanupRecord>> loadPendingCleanups(
+    String userId,
+  ) async {
+    final safeUid = _sanitizeUidOrNull(userId);
+    if (safeUid == null) return const <PendingVaultCleanupRecord>[];
+    if (kIsWeb) {
+      return List<PendingVaultCleanupRecord>.unmodifiable(
+        _ephemeralWebPendingCleanups[safeUid] ??
+            const <PendingVaultCleanupRecord>[],
+      );
+    }
+    return _withIndexLock(safeUid, () async {
+      final dir = await _resolveVaultDir(userId, createIfMissing: false);
+      if (dir == null || !dir.existsSync()) {
+        return const <PendingVaultCleanupRecord>[];
+      }
+      return List<PendingVaultCleanupRecord>.unmodifiable(
+        _loadPendingCleanupsUnlocked(dir),
+      );
+    });
+  }
+
+  /// Retries all durable pending cleanups using [deleteAttachmentForUser] (or
+  /// a custom [deleteDelegate] when called from repository tests).
+  /// Returns the count of items still pending after the retry pass (`0` = all clear).
+  Future<int> retryPendingCleanups(
+    String userId, {
+    Future<bool> Function({
+      required String userId,
+      String? attachmentId,
+      String? legacyLocalPath,
+      String? legacyStorageKey,
+    })?
+    deleteDelegate,
+  }) async {
+    final safeUid = _sanitizeUidOrNull(userId);
+    if (safeUid == null) return 0;
+
+    final pending = await loadPendingCleanups(userId);
+    if (pending.isEmpty) return 0;
+
+    final deleter = deleteDelegate ?? deleteAttachmentForUser;
+    final succeededKeys = <String>{};
+    for (final rec in pending) {
+      var ok = false;
+      try {
+        ok = await deleter(
+          userId: userId,
+          attachmentId: rec.attachmentId,
+          legacyLocalPath: rec.legacyLocalPath,
+          legacyStorageKey: rec.legacyStorageKey,
+        );
+      } catch (_) {
+        ok = false;
+      }
+      if (ok) {
+        succeededKeys.add(rec.dedupKey);
+      }
+    }
+
+    if (kIsWeb) {
+      final list = _ephemeralWebPendingCleanups[safeUid];
+      if (list == null) return 0;
+      list.removeWhere((e) => succeededKeys.contains(e.dedupKey));
+      if (list.isEmpty) {
+        _ephemeralWebPendingCleanups.remove(safeUid);
+        return 0;
+      }
+      return list.length;
+    }
+
+    return _withIndexLock(safeUid, () async {
+      final dir = await _resolveVaultDir(userId, createIfMissing: false);
+      if (dir == null || !dir.existsSync()) return 0;
+      final latest = List<PendingVaultCleanupRecord>.from(
+        _loadPendingCleanupsUnlocked(dir),
+      );
+      latest.removeWhere((e) => succeededKeys.contains(e.dedupKey));
+      _savePendingCleanupsAtomicUnlocked(dir, latest);
+      return latest.length;
+    });
+  }
+
   /// Account-scoped document vault cleanup (H4):
   /// Safely deletes ONLY `<vaultRoot>/<sanitizedUserId>` (verified via canonical
   /// path containment), leaving all other users' vault directories untouched.
@@ -941,43 +1556,47 @@ class SparkSafeFileStorageService implements FileStorageService {
       _ephemeralWebAttachmentIndex.removeWhere(
         (k, _) => prefixes.any((p) => k.startsWith(p)),
       );
+      _ephemeralWebPendingCleanups.remove(safeUid);
       return;
     }
 
-    final bridge = vaultBridge ?? NativeSecureVaultBridge.instance;
-    final basePaths = <String>{};
-    final primaryBase = await _resolveVaultBasePath(
-      customVaultRootPath: customVaultRootPath,
-      vaultBridge: bridge,
-    );
-    if (primaryBase != null && primaryBase.trim().isNotEmpty) {
-      basePaths.add(primaryBase);
-    }
-    if (customVaultRootPath == null && (Platform.isAndroid || Platform.isIOS)) {
-      final legacyBase = await bridge.getLegacyVaultDirectoryPath();
-      if (legacyBase != null && legacyBase.trim().isNotEmpty) {
-        basePaths.add(legacyBase);
-      }
-    }
-
-    for (final basePath in basePaths) {
-      final baseDir = Directory(basePath);
-      if (!baseDir.existsSync()) continue;
-      final userDir = Directory(
-        '${baseDir.path}${Platform.pathSeparator}$safeUid',
+    await _withIndexLock(safeUid, () async {
+      final bridge = vaultBridge ?? NativeSecureVaultBridge.instance;
+      final basePaths = <String>{};
+      final primaryBase = await _resolveVaultBasePath(
+        customVaultRootPath: customVaultRootPath,
+        vaultBridge: bridge,
       );
-      if (FileSystemEntity.isLinkSync(userDir.path)) {
-        // Never follow a symlink out of vaultRoot into another user's dir.
-        continue;
+      if (primaryBase != null && primaryBase.trim().isNotEmpty) {
+        basePaths.add(primaryBase);
       }
-      if (!userDir.existsSync()) continue;
-      if (!isCanonicalPathStrictlyInsideDirectory(
-        userVaultDir: baseDir,
-        candidateFile: File(userDir.path),
-      )) {
-        continue;
+      if (customVaultRootPath == null &&
+          (Platform.isAndroid || Platform.isIOS)) {
+        final legacyBase = await bridge.getLegacyVaultDirectoryPath();
+        if (legacyBase != null && legacyBase.trim().isNotEmpty) {
+          basePaths.add(legacyBase);
+        }
       }
-      await _deleteDirectorySafely(userDir, baseDir);
-    }
+
+      for (final basePath in basePaths) {
+        final baseDir = Directory(basePath);
+        if (!baseDir.existsSync()) continue;
+        final userDir = Directory(
+          '${baseDir.path}${Platform.pathSeparator}$safeUid',
+        );
+        if (FileSystemEntity.isLinkSync(userDir.path)) {
+          // Never follow a symlink out of vaultRoot into another user's dir.
+          continue;
+        }
+        if (!userDir.existsSync()) continue;
+        if (!isCanonicalPathStrictlyInsideDirectory(
+          userVaultDir: baseDir,
+          candidateFile: File(userDir.path),
+        )) {
+          continue;
+        }
+        await _deleteDirectorySafely(userDir, baseDir);
+      }
+    });
   }
 }

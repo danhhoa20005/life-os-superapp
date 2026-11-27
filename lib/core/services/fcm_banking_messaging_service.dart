@@ -25,6 +25,7 @@ class IncomingBankingPushPayload {
   final String title;
   final String body;
   final bool openedFromSystemTray;
+  final String? targetUid;
 
   const IncomingBankingPushPayload({
     required this.notificationId,
@@ -36,6 +37,7 @@ class IncomingBankingPushPayload {
     required this.title,
     required this.body,
     required this.openedFromSystemTray,
+    this.targetUid,
   });
 }
 
@@ -57,19 +59,21 @@ class FirebaseFcmPlatformDriver implements FcmPlatformDriver {
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
-  IncomingBankingPushPayload? _mapRemoteMessage(
-    RemoteMessage? msg, {
+  static IncomingBankingPushPayload? mapDataMap(
+    Map<String, dynamic> d, {
+    String? messageId,
+    String? notificationTitle,
+    String? notificationBody,
     required bool openedFromSystemTray,
   }) {
-    if (msg == null) return null;
-    final d = msg.data;
     if (d['type'] != 'bank_transaction' &&
         (d['transactionId'] ?? '').toString().isEmpty) {
       return null;
     }
     final txId = (d['transactionId'] ?? '').toString();
-    final notifId = (d['notificationId'] ?? msg.messageId ?? 'push_$txId')
+    final notifId = (d['notificationId'] ?? messageId ?? 'push_$txId')
         .toString();
+    final rawTargetUid = (d['targetUid'] ?? d['ownerId'])?.toString().trim();
     return IncomingBankingPushPayload(
       notificationId: notifId,
       transactionId: txId,
@@ -77,8 +81,25 @@ class FirebaseFcmPlatformDriver implements FcmPlatformDriver {
       connectionId: (d['connectionId'] ?? '').toString(),
       direction: (d['direction'] ?? 'credit').toString(),
       verificationStatus: (d['verificationStatus'] ?? 'VERIFIED').toString(),
-      title: msg.notification?.title ?? 'Life OS — Biến động ngân hàng',
-      body: msg.notification?.body ?? '',
+      title: notificationTitle ?? 'Life OS — Biến động ngân hàng',
+      body: notificationBody ?? '',
+      openedFromSystemTray: openedFromSystemTray,
+      targetUid: (rawTargetUid == null || rawTargetUid.isEmpty)
+          ? null
+          : rawTargetUid,
+    );
+  }
+
+  IncomingBankingPushPayload? _mapRemoteMessage(
+    RemoteMessage? msg, {
+    required bool openedFromSystemTray,
+  }) {
+    if (msg == null) return null;
+    return mapDataMap(
+      msg.data,
+      messageId: msg.messageId,
+      notificationTitle: msg.notification?.title,
+      notificationBody: msg.notification?.body,
       openedFromSystemTray: openedFromSystemTray,
     );
   }
@@ -172,6 +193,7 @@ class FcmBankingMessagingService {
 
   String? _activeUserId;
   String? _activeDeviceId;
+  int _sessionGeneration = 0;
   StreamSubscription<String>? _registeredSub;
   StreamSubscription<IncomingBankingPushPayload>? _foregroundSub;
   StreamSubscription<IncomingBankingPushPayload>? _openedSub;
@@ -190,6 +212,9 @@ class FcmBankingMessagingService {
   }) : _firestore = firestore,
        _driver = driver ?? const FirebaseFcmPlatformDriver();
 
+  @visibleForTesting
+  int get sessionGeneration => _sessionGeneration;
+
   Stream<IncomingBankingPushPayload> get foregroundNotifications =>
       _foregroundEventsCtrl.stream;
 
@@ -207,34 +232,64 @@ class FcmBankingMessagingService {
     return 'dev_$digest';
   }
 
+  static bool _isAudienceMatch(
+    IncomingBankingPushPayload payload,
+    String expectedUserId,
+  ) {
+    final target = payload.targetUid?.trim();
+    if (target != null && target.isNotEmpty && target != expectedUserId) {
+      return false;
+    }
+    return true;
+  }
+
   /// Registers FCM listeners and device token strictly scoped to `userId`.
   /// If a previous user was active on this device, deactivates their registration first (T16).
   Future<bool> bindAuthenticatedUser(String userId) async {
     if (_activeUserId != null && _activeUserId != userId) {
       await unbindAndDeactivateOnLogout();
     }
+    final bindGeneration = ++_sessionGeneration;
     _activeUserId = userId;
     _seenForegroundNotificationIds.clear();
 
     final granted = await _driver.requestPushPermission();
+    if (_sessionGeneration != bindGeneration || _activeUserId != userId) {
+      return false;
+    }
 
     await _registeredSub?.cancel();
+    if (_sessionGeneration != bindGeneration || _activeUserId != userId) {
+      return false;
+    }
     _registeredSub = _driver.onRegistered.listen((newToken) {
-      final uid = _activeUserId;
-      if (uid != null && newToken.trim().isNotEmpty) {
+      if (_sessionGeneration != bindGeneration || _activeUserId != userId) {
+        return;
+      }
+      if (newToken.trim().isNotEmpty) {
         _upsertUserDeviceToken(
-          userId: uid,
+          userId: userId,
           token: newToken,
           pushEnabled: granted,
+          expectedGeneration: bindGeneration,
         );
       }
     });
 
     await _driver.registerDevice();
+    if (_sessionGeneration != bindGeneration || _activeUserId != userId) {
+      return false;
+    }
 
     await _foregroundSub?.cancel();
+    if (_sessionGeneration != bindGeneration || _activeUserId != userId) {
+      return false;
+    }
     _foregroundSub = _driver.onForegroundMessage.listen((payload) {
-      if (_activeUserId != userId) return;
+      if (_sessionGeneration != bindGeneration || _activeUserId != userId) {
+        return;
+      }
+      if (!_isAudienceMatch(payload, userId)) return;
       if (_seenForegroundNotificationIds.contains(payload.notificationId)) {
         return;
       }
@@ -243,13 +298,22 @@ class FcmBankingMessagingService {
     });
 
     await _openedSub?.cancel();
+    if (_sessionGeneration != bindGeneration || _activeUserId != userId) {
+      return false;
+    }
     _openedSub = _driver.onMessageOpenedApp.listen((payload) {
-      if (_activeUserId != userId) return;
+      if (_sessionGeneration != bindGeneration || _activeUserId != userId) {
+        return;
+      }
+      if (!_isAudienceMatch(payload, userId)) return;
       _deepLinkEventsCtrl.add(payload);
     });
 
     final coldStart = await _driver.getInitialTerminatedMessage();
-    if (coldStart != null && _activeUserId == userId) {
+    if (coldStart != null &&
+        _sessionGeneration == bindGeneration &&
+        _activeUserId == userId &&
+        _isAudienceMatch(coldStart, userId)) {
       _pendingColdStartDeepLink = coldStart;
       _deepLinkEventsCtrl.add(coldStart);
     }
@@ -261,7 +325,11 @@ class FcmBankingMessagingService {
     required String userId,
     required String token,
     required bool pushEnabled,
+    required int expectedGeneration,
   }) async {
+    if (_sessionGeneration != expectedGeneration || _activeUserId != userId) {
+      return;
+    }
     final devId = computeDeterministicDeviceId(token);
     _activeDeviceId = devId;
     final platformName = switch (defaultTargetPlatform) {
@@ -283,12 +351,13 @@ class FcmBankingMessagingService {
         }, SetOptions(merge: true));
   }
 
-  /// T16: Deactivates current device token & unregisters FCM immediately upon logout!
+  /// T16 + BANK-06: Deactivates old FCM token on Firestore FIRST before revoking
+  /// local driver registration and clearing the local session, while incrementing
+  /// [_sessionGeneration] immediately so any in-flight messages drop cleanly.
   Future<void> unbindAndDeactivateOnLogout() async {
+    final logoutGeneration = ++_sessionGeneration;
     final prevUser = _activeUserId;
     final prevDev = _activeDeviceId;
-    _activeUserId = null;
-    _activeDeviceId = null;
     _pendingColdStartDeepLink = null;
     _seenForegroundNotificationIds.clear();
 
@@ -298,8 +367,6 @@ class FcmBankingMessagingService {
     _registeredSub = null;
     _foregroundSub = null;
     _openedSub = null;
-
-    await _driver.unregisterDevice();
 
     if (prevUser != null && prevDev != null) {
       try {
@@ -315,6 +382,13 @@ class FcmBankingMessagingService {
               'loggedOutAt': Timestamp.fromDate(DateTime.now()),
             }, SetOptions(merge: true));
       } catch (_) {}
+    }
+
+    await _driver.unregisterDevice();
+
+    if (_sessionGeneration == logoutGeneration) {
+      _activeUserId = null;
+      _activeDeviceId = null;
     }
   }
 }

@@ -191,6 +191,34 @@ class CalendarRemoteDataSource {
     return calendar;
   }
 
+  static const int maxDeleteBatchOps = 400;
+
+  static bool _isRemoteAlreadyDeletedError(Object error) {
+    if (error is AppException) {
+      final upperCode = error.code.toUpperCase();
+      if (upperCode.contains('404') ||
+          upperCode.contains('410') ||
+          upperCode.contains('NOT_FOUND')) {
+        return true;
+      }
+      return RegExp(r'\b(?:404|410)\b').hasMatch(error.message);
+    }
+    return RegExp(r'\b(?:404|410)\b').hasMatch(error.toString());
+  }
+
+  /// Disconnects a calendar and its linked private events locally without
+  /// deleting the remote Google Calendar.
+  Future<void> disconnectCalendarLocally({
+    required String userId,
+    required ManagedCalendarEntity calendar,
+  }) {
+    return deleteCalendar(
+      userId: userId,
+      calendar: calendar,
+      disconnectLocalOnly: true,
+    );
+  }
+
   Future<void> deleteCalendar({
     required String userId,
     required ManagedCalendarEntity calendar,
@@ -207,6 +235,7 @@ class CalendarRemoteDataSource {
     final calDocRef = userRef.collection('calendars').doc(calendar.id);
 
     // F17 / CAL-01: Never wipe local calendar & events silently if Google remote deletion fails!
+    // Treat HTTP 404 / 410 as idempotent already-deleted success so retries clean up ghost calendars.
     if (!disconnectLocalOnly &&
         calendar.googleCalendarId != null &&
         calendar.googleCalendarId!.isNotEmpty) {
@@ -229,30 +258,45 @@ class CalendarRemoteDataSource {
           googleCalendarId: calendar.googleCalendarId!,
         );
       } catch (e) {
-        await calDocRef.set({
-          'pendingRemoteDelete': true,
-          'lastSyncError': e.toString(),
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-        }, SetOptions(merge: true));
-        throw const AppException(
-          code: 'CALENDAR_REMOTE_DELETE_FAILED',
-          message:
-              'Xóa trên Google Calendar chưa thành công (mất mạng hoặc hết phiên OAuth). Dữ liệu cục bộ được giữ nguyên để tránh mất lịch.',
-        );
+        if (!_isRemoteAlreadyDeletedError(e)) {
+          await calDocRef.set({
+            'pendingRemoteDelete': true,
+            'lastSyncError': e.toString(),
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          }, SetOptions(merge: true));
+          throw const AppException(
+            code: 'CALENDAR_REMOTE_DELETE_FAILED',
+            message:
+                'Xóa trên Google Calendar chưa thành công (mất mạng hoặc hết phiên OAuth). Dữ liệu cục bộ được giữ nguyên để tránh mất lịch.',
+          );
+        }
       }
     }
-
-    final batch = _firestore.batch();
-    batch.delete(calDocRef);
 
     final linkedEvents = await userRef
         .collection('private_events')
         .where('calendarId', isEqualTo: calendar.id)
         .get();
-    for (final evDoc in linkedEvents.docs) {
-      batch.delete(evDoc.reference);
+    final refsToDelete = <DocumentReference<Map<String, dynamic>>>[
+      for (final evDoc in linkedEvents.docs) evDoc.reference,
+      calDocRef,
+    ];
+
+    // CAL-01: Chunk Firestore batch commits into <= 400 writes (never exceeding 500-op limit).
+    for (
+      var start = 0;
+      start < refsToDelete.length;
+      start += maxDeleteBatchOps
+    ) {
+      final end = (start + maxDeleteBatchOps < refsToDelete.length)
+          ? start + maxDeleteBatchOps
+          : refsToDelete.length;
+      final batch = _firestore.batch();
+      for (var i = start; i < end; i++) {
+        batch.delete(refsToDelete[i]);
+      }
+      await batch.commit();
     }
-    await batch.commit();
   }
 
   CalendarEventEntity _mapEvent(
@@ -1431,6 +1475,23 @@ class CalendarRepositoryImpl implements CalendarRepository {
   }) async {
     try {
       await _remoteDataSource.deleteCalendar(
+        userId: userId,
+        calendar: calendar,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Err(ErrorMapper.map(e));
+    }
+  }
+
+  /// Disconnects a Google or local secondary calendar locally without deleting
+  /// the remote Google Calendar.
+  Future<Result<void>> disconnectCalendarLocally({
+    required String userId,
+    required ManagedCalendarEntity calendar,
+  }) async {
+    try {
+      await _remoteDataSource.disconnectCalendarLocally(
         userId: userId,
         calendar: calendar,
       );
