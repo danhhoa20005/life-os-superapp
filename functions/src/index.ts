@@ -127,7 +127,26 @@ export const retryFailedNotificationOutboxWorker = onSchedule(
   },
   async () => {
     const coordinator = createProductionCoordinator();
-    await coordinator.retryDueNotificationOutboxBatch(Date.now(), 50);
+    await coordinator.recoverNotificationOutbox(Date.now(), 50);
+  }
+);
+
+/**
+ * 3c. BANK-02 Scheduled Webhook Inbox Sweeper & Retention Purger:
+ *     Recovers stalled `PENDING_PROCESSING` / `FAILED_RETRYABLE` inbox items with lease/dead-letter
+ *     and purges expired unlinked/processed inbox records past their retention TTL.
+ */
+export const recoverPendingWebhookInboxWorker = onSchedule(
+  {
+    schedule: "every 5 minutes",
+    region: "asia-southeast1",
+    maxInstances: 1
+  },
+  async () => {
+    const coordinator = createProductionCoordinator();
+    const nowMs = Date.now();
+    await coordinator.recoverPendingWebhookInbox(nowMs, 50);
+    await coordinator.purgeExpiredInboxRecords(nowMs, 100);
   }
 );
 
@@ -394,7 +413,9 @@ export const reconcileBankConnectionViaApi = onCall(
       );
     }
     const accountNumber = String(conn.accountNumber ?? "");
-    const watermarkTxId = ignoreWatermark ? undefined : (conn.lastReconciledExternalTxId as string | undefined);
+    const watermarkTxId = ignoreWatermark
+      ? undefined
+      : ((conn.lastSyncedExternalTxId ?? conn.lastReconciledExternalTxId) as string | undefined);
 
     const coordinator = createProductionCoordinator();
     const summary = await coordinator.reconcilePaginatedSePayPages({
@@ -431,16 +452,8 @@ export const reconcileBankConnectionViaApi = onCall(
       }
     });
 
-    if (summary.newestExternalTxId) {
-      await connRef.set(
-        {
-          lastReconciledExternalTxId: summary.newestExternalTxId,
-          lastReconciledAt: admin.firestore.Timestamp.now()
-        },
-        { merge: true }
-      );
-    }
-
+    // BANK-03: Watermark advance is already CAS-committed inside `reconcilePaginatedSePayPages`
+    // ONLY when `summary.incomplete === false` and grantVersion is unchanged.
     const jobId = `rec_${connectionId}_${Date.now()}`;
     await db.collection("bank_reconciliation_jobs").doc(jobId).set({
       id: jobId,
@@ -450,6 +463,10 @@ export const reconcileBankConnectionViaApi = onCall(
       fetchedCount: summary.fetchedCount,
       processedCount: summary.processedCount,
       duplicateCount: summary.duplicateCount,
+      invalidCount: summary.invalidCount,
+      skippedCount: summary.skippedCount,
+      incomplete: summary.incomplete,
+      reachedPreviousWatermark: summary.reachedPreviousWatermark,
       completedAt: admin.firestore.Timestamp.now()
     });
 
@@ -458,7 +475,11 @@ export const reconcileBankConnectionViaApi = onCall(
       pagesFetched: summary.pagesFetched,
       fetchedCount: summary.fetchedCount,
       processedCount: summary.processedCount,
-      duplicateCount: summary.duplicateCount
+      duplicateCount: summary.duplicateCount,
+      invalidCount: summary.invalidCount,
+      skippedCount: summary.skippedCount,
+      incomplete: summary.incomplete,
+      reachedPreviousWatermark: summary.reachedPreviousWatermark
     };
   }
 );

@@ -118,7 +118,15 @@ void main() {
           bridge: AndroidNotificationBridge(),
           functionsInvokerOverride: (fnName, payload) async {
             invokedFunctions.add('$fnName:${payload['userId']}');
-            return <String, dynamic>{'ok': true, 'deletedCount': 4};
+            // Simulate authoritative server-side deletion (DEL-01)
+            await firestore.collection('users').doc('u_del_play').delete();
+            return <String, dynamic>{
+              'ok': true,
+              'status': 'completed',
+              'verifiedClean': true,
+              'authDeleted': true,
+              'deletedCount': 4,
+            };
           },
         );
 

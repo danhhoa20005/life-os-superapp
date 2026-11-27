@@ -77,6 +77,11 @@ jobs:
       - name: Verify Android Play Flavor Clean App Bundle Debug Build
         run: flutter build appbundle --debug --flavor play
 
+      - name: Run Android Native Kotlin JVM Unit Tests (Play & GitHub Flavors — QA-01)
+        run: |
+          cd android
+          ./gradlew :app:testPlayDebugUnitTest :app:testGithubDebugUnitTest
+
   verify-cloud-functions:
     runs-on: ubuntu-latest
     defaults:
@@ -126,7 +131,7 @@ jobs:
 
       - name: Execute Live Auth + Firestore Emulator Security Attack & Integration Suite
         run: |
-          firebase emulators:exec --only auth,firestore --project demo-life-os "node --test --test-concurrency=1 firebase/rules_tests/run_emulator_rules_tests.mjs functions/lib/test/realtime_banking.test.js functions/lib/test/family_invites.test.js functions/lib/test/firestore_emulator.test.js"
+          firebase emulators:exec --only auth,firestore --project demo-life-os "node --test --test-concurrency=1 firebase/rules_tests/run_emulator_rules_tests.mjs functions/lib/test/realtime_banking.test.js functions/lib/test/family_invites.test.js functions/lib/test/account_deletion.test.js functions/lib/test/firestore_emulator.test.js"
 
   publish-android-ota-release:
     needs: [verify-flutter-and-android-flavors, verify-cloud-functions, verify-firebase-emulator]

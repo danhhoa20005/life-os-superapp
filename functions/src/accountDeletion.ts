@@ -10,6 +10,7 @@ export const DEFAULT_RETENTION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 export const OWNER_SCOPED_SERVER_COLLECTIONS = [
   "server_bank_connections",
   "server_bank_account_claims",
+  "server_source_events",
   "sepay_webhook_inbox",
   "notification_outbox",
   "bank_reconciliation_jobs",

@@ -1277,6 +1277,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /server_source_events/{eventId} {
+      allow read, write: if false;
+    }
+
     match /sepay_webhook_inbox/{providerEventKey} {
       allow read, write: if false;
     }
