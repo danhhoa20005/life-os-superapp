@@ -233,8 +233,18 @@ void main() {
         // Confirm no Copy button on Export tab
         expect(find.textContaining('Sao chép'), findsNothing);
 
-        // 1. Export JSON -> shares file, clipboard MUST keep sentinel!
+        // 1. Export encrypted v4 JSON -> shares file, clipboard MUST keep sentinel!
+        await tester.enterText(
+          find.byKey(const Key('backup_export_passphrase_field')),
+          'ClipGuardPass#2026',
+        );
         await tester.tap(find.byKey(const Key('backup_export_json_btn')));
+        await tester.runAsync(() async {
+          for (var i = 0; i < 200 && shareCalls.isEmpty; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 25));
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
         await tester.pumpAndSettle();
         expect(shareCalls.length, 1);
         expect(shareCalls.last.arguments['mimeType'], 'application/json');
@@ -251,7 +261,7 @@ void main() {
           find.byKey(const Key('backup_toggle_raw_preview_btn')),
         );
         await tester.pumpAndSettle();
-        expect(find.textContaining('LIFEOS_BACKUP_V3'), findsOneWidget);
+        expect(find.textContaining('LIFEOS_BACKUP_V4'), findsOneWidget);
 
         // Dismiss toast
         await tester.pump(const Duration(seconds: 4));
@@ -277,6 +287,12 @@ void main() {
         // Phase 2: Simulate share cancelled (null return) -> sentinel preserved!
         mockShareReturn = null;
         await tester.tap(find.byKey(const Key('backup_export_json_btn')));
+        await tester.runAsync(() async {
+          for (var i = 0; i < 200 && shareCalls.length < 3; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 25));
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
         await tester.pumpAndSettle();
         expect(find.textContaining('Đã hủy chia sẻ tệp'), findsOneWidget);
         expect(clipboardSetCalls, 0);
@@ -339,8 +355,11 @@ void main() {
         sl.registerSingleton<BackupFileShareService>(shareService);
         registerBackupDependencies(sl);
 
-        // Export archive from srcUser
-        final exportRes = await backupRepo.exportOwnerData(ownerId: srcUser);
+        // Export archive from srcUser (explicit opt-in plaintext for unencrypted preview sheet test)
+        final exportRes = await backupRepo.exportOwnerData(
+          ownerId: srcUser,
+          allowPlaintextExport: true,
+        );
         final exportedArchive =
             (exportRes as Success<BackupExportBundle>).value.archiveContent;
 
@@ -442,7 +461,10 @@ void main() {
         );
         final cleanRepo = BackupRepositoryImpl(remoteDataSource: cleanDs);
         final exportedArchive =
-            (await cleanRepo.exportOwnerData(ownerId: srcUser)
+            (await cleanRepo.exportOwnerData(
+                      ownerId: srcUser,
+                      allowPlaintextExport: true,
+                    )
                     as Success<BackupExportBundle>)
                 .value
                 .archiveContent;
@@ -623,7 +645,7 @@ void main() {
         });
 
         final inMemoryRepo = InMemorySnapshotBackupRepository(
-          codec: const BackupArchiveCodec.forTesting(kdfIterations: 12000),
+          codec: const BackupArchiveCodec.forTesting(kdfIterations: 100000),
           initialCollections: {
             BackupCollectionCatalog.wallets: [
               {'id': 'w1', 'name': 'Ví thử nghiệm', 'balanceMinor': 2500000},

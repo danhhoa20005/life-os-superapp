@@ -100,6 +100,7 @@ class BackupBloc extends Bloc<BackupEvent, BackupState> {
       ExportFullBackupParams(
         ownerId: event.userId,
         passphrase: event.passphrase,
+        allowPlaintextExport: event.allowPlaintextExport,
       ),
     );
     if (res is Err<BackupExportBundle>) {

@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart' as cf;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/di/dependency_injection.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/error_mapper.dart';
+import '../../../../core/offline/offline_outbox_service.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/services/android_notification_bridge.dart';
 import '../../../../core/services/file_storage_service.dart';
@@ -36,6 +40,7 @@ class NotificationsRemoteDataSource {
   final CloudFunctionsInvoker? _functionsInvokerOverride;
   final FinancialAiRepository? _financialAiRepository;
   final Future<void> Function(String userId)? _clearUserVaultOverride;
+  final bool _allowLocalEmulatorlessFallbackForTest;
 
   NotificationsRemoteDataSource({
     required FirebaseFirestore firestore,
@@ -44,12 +49,24 @@ class NotificationsRemoteDataSource {
     CloudFunctionsInvoker? functionsInvokerOverride,
     FinancialAiRepository? financialAiRepository,
     Future<void> Function(String userId)? clearUserVaultOverride,
+    @visibleForTesting bool allowLocalEmulatorlessFallbackForTest = true,
   }) : _firestore = firestore,
        _firebaseAuth = firebaseAuth,
        _bridge = bridge,
        _functionsInvokerOverride = functionsInvokerOverride,
        _financialAiRepository = financialAiRepository,
-       _clearUserVaultOverride = clearUserVaultOverride;
+       _clearUserVaultOverride = clearUserVaultOverride,
+       _allowLocalEmulatorlessFallbackForTest =
+           allowLocalEmulatorlessFallbackForTest;
+
+  static bool get _isFlutterTestRuntime {
+    if (kIsWeb) return false;
+    try {
+      return Platform.environment['FLUTTER_TEST'] == 'true';
+    } catch (_) {
+      return false;
+    }
+  }
 
   Future<void> _txChain = Future<void>.value();
 
@@ -657,6 +674,10 @@ class NotificationsRemoteDataSource {
           .get();
       for (final doc in openOrdersSnap.docs) {
         final order = _mapPaymentOrder(doc.id, doc.data());
+        if (order.status == PaymentOrderStatus.expired ||
+            order.status == PaymentOrderStatus.cancelled) {
+          continue;
+        }
         final codeUpper = order.paymentCode.toUpperCase();
         if (codeUpper.isNotEmpty &&
             (signal.matchedPaymentCode?.toUpperCase() == codeUpper ||
@@ -872,34 +893,43 @@ class NotificationsRemoteDataSource {
               freshOrderSnap.id,
               freshOrderSnap.data()!,
             );
+            final isExpiredOrCancelled =
+                freshOrder.status == PaymentOrderStatus.expired ||
+                freshOrder.status == PaymentOrderStatus.cancelled;
             final isOpenOrder =
-                freshOrder.status == PaymentOrderStatus.pending ||
-                freshOrder.status == PaymentOrderStatus.partial;
+                !isExpiredOrCancelled &&
+                (freshOrder.status == PaymentOrderStatus.pending ||
+                    freshOrder.status == PaymentOrderStatus.partial);
             final isVndOrder = freshOrder.currency.toUpperCase() == 'VND';
 
             if (isOpenOrder && isVndOrder) {
               verifiedFreshOrder = freshOrder;
 
-              final bankMatches =
-                  signal.bankCode == 'BANK' ||
-                  freshOrder.bankCode.isEmpty ||
-                  signal.bankCode.toUpperCase() ==
-                      freshOrder.bankCode.toUpperCase();
+              final signalBank = signal.bankCode.trim().toUpperCase();
+              final orderBank = freshOrder.bankCode.trim().toUpperCase();
+              final hasSpecificBank =
+                  signalBank.isNotEmpty &&
+                  signalBank != 'BANK' &&
+                  orderBank.isNotEmpty &&
+                  signalBank == orderBank;
+
+              final signalTail = signal.accountTail?.trim() ?? '';
               final normalizedOrderAcc = freshOrder.accountNumber.replaceAll(
                 RegExp(r'[^0-9A-Za-z]'),
                 '',
               );
-              final accountTailMatches =
-                  signal.accountTail == null ||
-                  signal.accountTail!.isEmpty ||
-                  normalizedOrderAcc.isEmpty ||
-                  normalizedOrderAcc.endsWith(signal.accountTail!);
-              final walletMatches =
-                  !resolvedSpecificBankWallet ||
-                  targetWalletId == freshOrder.walletId;
+              final hasMatchingAccountTail =
+                  signalTail.length >= 2 &&
+                  normalizedOrderAcc.isNotEmpty &&
+                  normalizedOrderAcc.endsWith(signalTail);
 
-              final isMismatch =
-                  !bankMatches || !accountTailMatches || !walletMatches;
+              final walletCompatible =
+                  !isAmbiguousWalletRouting &&
+                  (!resolvedSpecificBankWallet ||
+                      targetWalletId == freshOrder.walletId);
+
+              final hasPositiveEvidence =
+                  hasSpecificBank && hasMatchingAccountTail && walletCompatible;
 
               final updatedMatchedIds = List<String>.from(
                 freshOrder.matchedTransactionIds,
@@ -913,13 +943,24 @@ class NotificationsRemoteDataSource {
                 updatedMatchedIds.add(txId);
               }
 
-              if (isMismatch) {
+              if (!hasPositiveEvidence) {
                 orderMismatched = true;
                 nextOrderStatus = PaymentOrderStatus.needsReview;
-                orderReviewReason =
-                    'Sai ngân hàng hoặc tài khoản nhận tiền so với đơn VietQR.';
-                // Do NOT mark paid, do NOT redirect to freshOrder.walletId,
-                // and do NOT apply unverified mismatch to order totals or ledger!
+                final isMissingEvidence =
+                    signalBank.isEmpty ||
+                    signalBank == 'BANK' ||
+                    orderBank.isEmpty ||
+                    signalTail.length < 2 ||
+                    normalizedOrderAcc.isEmpty ||
+                    isAmbiguousWalletRouting;
+                orderReviewReason = isMissingEvidence
+                    ? 'Thiếu thông tin ngân hàng hoặc số đuôi tài khoản đối chiếu — cần xác nhận thủ công.'
+                    : 'Sai ngân hàng hoặc tài khoản nhận tiền so với đơn VietQR.';
+                // Do NOT mark paid/partial, do NOT redirect to freshOrder.walletId,
+                // and do NOT apply unverified match to order totals or ledger!
+                if (isMissingEvidence) {
+                  effectiveWalletId = defaultWalletId;
+                }
                 shouldCommitLedger = false;
                 effectiveIsAmbiguousRouting = false;
                 orderUpdatePayload = {
@@ -1906,32 +1947,31 @@ class NotificationsRemoteDataSource {
       }
     }
 
-    // 3. Invoke server-side Cloud Function `deleteUserAccountData` FIRST
-    //    (after pre-checks pass, BEFORE mutating/wiping partial client state!)
-    //    with safe retry (2 attempts) to purge server-only collections.
+    // 3. Invoke authoritative server-side Cloud Function `deleteUserAccountData`
+    //    with safe retry (2 attempts). Server is the SOLE deleter of cloud
+    //    Firestore data & family memberships — client NEVER recreates `users/{uid}`
+    //    or performs a second cloud wipe after the callable succeeds.
+    Map<String, dynamic>? backendResponse;
+    var usedLocalEmulatorlessFallback = false;
     for (var attempt = 1; attempt <= 2; attempt++) {
       try {
-        final resp = await _invokeBackendFunction(
+        backendResponse = await _invokeBackendFunction(
           'deleteUserAccountData',
           <String, dynamic>{'userId': userId},
         );
-        if (resp['ok'] == false) {
-          throw AppException(
-            code: 'SERVER_ACCOUNT_DELETION_FAILED',
-            message:
-                (resp['message'] as String?) ??
-                'Không thể xóa dữ liệu tài khoản trên máy chủ.',
-          );
-        }
         break;
       } catch (e) {
         final msg = e.toString();
-        // In local unit tests without a live Firebase app or functions mock,
-        // allow local Firestore wipe to proceed unless an override explicitly failed.
-        if (_functionsInvokerOverride == null &&
+        final isUninitializedFunctionsInTest =
+            _allowLocalEmulatorlessFallbackForTest &&
+            !kReleaseMode &&
+            _isFlutterTestRuntime &&
+            _functionsInvokerOverride == null &&
             (msg.contains('no-app') ||
                 msg.contains('No Firebase App') ||
-                msg.contains('MissingPluginException'))) {
+                msg.contains('MissingPluginException'));
+        if (isUninitializedFunctionsInTest) {
+          usedLocalEmulatorlessFallback = true;
           break;
         }
         if (attempt == 2) {
@@ -1940,7 +1980,102 @@ class NotificationsRemoteDataSource {
       }
     }
 
-    // 4. Purge Firestore personal subcollections, nested collections & family memberships
+    if (!usedLocalEmulatorlessFallback) {
+      final resp = backendResponse;
+      if (resp == null ||
+          resp['ok'] != true ||
+          resp['verifiedClean'] == false ||
+          (resp['status'] != null && resp['status'] != 'completed')) {
+        throw AppException(
+          code: 'SERVER_ACCOUNT_DELETION_FAILED',
+          message:
+              (resp?['message'] as String?) ??
+              'Không thể xác minh xóa sạch dữ liệu tài khoản trên máy chủ.',
+        );
+      }
+      if (resp['authDeleted'] == false) {
+        throw AppException(
+          code: 'SERVER_AUTH_DELETION_INCOMPLETE',
+          message:
+              (resp['message'] as String?) ??
+              'Máy chủ chưa hoàn tất xóa tài khoản xác thực — vui lòng thử lại.',
+        );
+      }
+    } else {
+      await _runLocalEmulatorlessFirestoreCleanupForTest(
+        userId,
+        famSnapDocs: famSnap.docs,
+      );
+    }
+
+    // 4. Purge ONLY local device queues, user-scoped vault secrets, alarms,
+    //    widgets, outbox session state & behavior prefs after cloud confirmation.
+    await _bridge.clearAllQueuedNotifications();
+    await _bridge.syncConsentConfig(
+      enabled: false,
+      allowedPackages: const [],
+      voiceSoundboxEnabled: false,
+    );
+    await _clearUserScopedLocalVault(userId);
+    if (sl.isRegistered<OfflineOutboxService>()) {
+      await sl<OfflineOutboxService>().clearSessionOnSignOut();
+    }
+    await NativeAlarmSchedulerBridge.instance.clearAllAlarms();
+    if (sl.isRegistered<NativeHomeWidgetBridge>()) {
+      await sl<NativeHomeWidgetBridge>().clearWidgetsOnSignOut();
+    } else {
+      await NativeHomeWidgetBridge().clearWidgetsOnSignOut();
+    }
+    UserBehaviorPrefs.clearSessionOnSignOut();
+
+    // 5. Terminate Firebase Auth session cleanly after server/local cleanup.
+    if (backendResponse?['authDeleted'] == true) {
+      try {
+        await _firebaseAuth.signOut();
+      } on FirebaseAuthException catch (e) {
+        if (e.code != 'user-not-found') {
+          rethrow;
+        }
+      }
+    } else if (current != null && current.uid == userId) {
+      try {
+        await current.delete();
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'requires-recent-login') {
+          throw const AppException(
+            code: 'REQUIRES_RECENT_LOGIN',
+            message:
+                'Vì lý do bảo mật, bạn cần đăng nhập lại gần đây để hoàn tất xóa tài khoản.',
+          );
+        }
+        if (e.code == 'user-not-found') {
+          try {
+            await _firebaseAuth.signOut();
+          } catch (_) {}
+        } else {
+          throw AppException(
+            code: 'AUTH_DELETE_FAILED',
+            message: e.message ?? 'Không thể xóa tài khoản xác thực.',
+          );
+        }
+      }
+    } else {
+      try {
+        await _firebaseAuth.signOut();
+      } on FirebaseAuthException catch (e) {
+        if (e.code != 'user-not-found') {
+          rethrow;
+        }
+      }
+    }
+  }
+
+  /// Pure local-test fallback ONLY used in emulatorless `flutter test` runs
+  /// when neither Firebase Functions nor `functionsInvokerOverride` is present.
+  Future<void> _runLocalEmulatorlessFirestoreCleanupForTest(
+    String userId, {
+    required List<QueryDocumentSnapshot<Map<String, dynamic>>> famSnapDocs,
+  }) async {
     final userDocRef = _firestore.collection('users').doc(userId);
     await userDocRef.set({
       'id': userId,
@@ -1948,7 +2083,9 @@ class NotificationsRemoteDataSource {
       'deletionStartedAt': Timestamp.fromDate(DateTime.now()),
     }, SetOptions(merge: true));
 
-    for (final famDoc in famSnap.docs) {
+    for (final famDoc in famSnapDocs) {
+      final freshFam = await famDoc.reference.get();
+      if (!freshFam.exists) continue;
       try {
         final availSnap = await famDoc.reference
             .collection('availability')
@@ -1959,7 +2096,7 @@ class NotificationsRemoteDataSource {
         }
       } catch (_) {}
 
-      final d = famDoc.data();
+      final d = freshFam.data() ?? const <String, dynamic>{};
       final members = (d['memberIds'] as List<dynamic>? ?? const <dynamic>[])
           .map((e) => e.toString())
           .where((id) => id != userId)
@@ -1968,12 +2105,16 @@ class NotificationsRemoteDataSource {
         ..remove(userId);
       final names = Map<String, dynamic>.from((d['memberNames'] as Map?) ?? {})
         ..remove(userId);
-      await famDoc.reference.update({
-        'memberIds': members,
-        'memberRoles': roles,
-        'memberNames': names,
-        'updatedAt': Timestamp.fromDate(DateTime.now()),
-      });
+      if (members.isEmpty) {
+        await famDoc.reference.delete();
+      } else {
+        await famDoc.reference.update({
+          'memberIds': members,
+          'memberRoles': roles,
+          'memberNames': names,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+      }
     }
 
     final pFundsSnap = await userDocRef.collection('personal_funds').get();
@@ -2049,44 +2190,6 @@ class NotificationsRemoteDataSource {
     }
 
     await userDocRef.delete();
-
-    // 5. Purge local native queues, user-scoped vault secrets, alarms, widgets & session prefs
-    await _bridge.clearAllQueuedNotifications();
-    await _bridge.syncConsentConfig(
-      enabled: false,
-      allowedPackages: const [],
-      voiceSoundboxEnabled: false,
-    );
-    await _clearUserScopedLocalVault(userId);
-    await NativeAlarmSchedulerBridge.instance.clearAllAlarms();
-    if (sl.isRegistered<NativeHomeWidgetBridge>()) {
-      await sl<NativeHomeWidgetBridge>().clearWidgetsOnSignOut();
-    } else {
-      await NativeHomeWidgetBridge().clearWidgetsOnSignOut();
-    }
-    UserBehaviorPrefs.clearSessionOnSignOut();
-
-    // 6. Delete Firebase Auth account (only after server & client cleanup succeed)
-
-    if (current != null && current.uid == userId) {
-      try {
-        await current.delete();
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'requires-recent-login') {
-          throw const AppException(
-            code: 'REQUIRES_RECENT_LOGIN',
-            message:
-                'Vì lý do bảo mật, bạn cần đăng nhập lại gần đây để hoàn tất xóa tài khoản.',
-          );
-        }
-        throw AppException(
-          code: 'AUTH_DELETE_FAILED',
-          message: e.message ?? 'Không thể xóa tài khoản xác thực.',
-        );
-      }
-    } else {
-      await _firebaseAuth.signOut();
-    }
   }
 
   BankConnectionEntity _mapBankConnection(String id, Map<String, dynamic> d) {
@@ -2218,11 +2321,12 @@ class NotificationsRemoteDataSource {
     required String userId,
     required String connectionId,
   }) async {
+    final connRef = _bankConnectionsCol(userId).doc(connectionId);
     try {
       final resp = await _invokeBackendFunction('disconnectBankConnection', {
         'connectionId': connectionId,
       });
-      if (resp['ok'] == false) {
+      if (resp['ok'] != true) {
         throw AppException(
           code: 'SERVER_REVOCATION_FAILED',
           message:
@@ -2230,25 +2334,39 @@ class NotificationsRemoteDataSource {
               'Máy chủ chưa xác nhận thu hồi kết nối ngân hàng.',
         );
       }
-      // Server succeeded: ensure client mirror reflects disconnected/revoked cleanly.
-      await _bankConnectionsCol(userId).doc(connectionId).set({
-        'ownerId': userId,
-        'status': 'disconnected',
-        'consentStatus': 'revoked',
-        'lastRevocationError': null,
-        'updatedAt': Timestamp.fromDate(DateTime.now()),
-      }, SetOptions(merge: true));
+      // Server atomically updated the mirror inside `disconnectBankConnection`.
+      return;
     } catch (e) {
-      // NEVER write status='disconnected' or consentStatus='revoked' when server failed!
+      // If callable timed out AFTER server committed, inspect authoritative mirror first!
+      DocumentSnapshot<Map<String, dynamic>>? mirrorSnap;
       try {
-        await _bankConnectionsCol(userId).doc(connectionId).set({
-          'ownerId': userId,
-          'status': 'pendingRevocation',
-          'consentStatus': 'revocation_pending',
-          'revocationRequestedAt': Timestamp.fromDate(DateTime.now()),
-          'lastRevocationError': e.toString(),
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-        }, SetOptions(merge: true));
+        mirrorSnap = await connRef.get();
+        final mirrorData = mirrorSnap.data();
+        final mirrorStatus = (mirrorData?['status'] as String?)?.trim();
+        final mirrorConsent = (mirrorData?['consentStatus'] as String?)?.trim();
+        if (mirrorStatus == 'disconnected' || mirrorConsent == 'revoked') {
+          return;
+        }
+      } catch (_) {}
+
+      // NEVER write status='disconnected' or consentStatus='revoked' when server failed!
+      final nowTs = Timestamp.fromDate(DateTime.now());
+      final pendingFields = <String, dynamic>{
+        'status': 'pendingRevocation',
+        'consentStatus': 'revocation_pending',
+        'revocationRequestedAt': nowTs,
+        'lastRevocationError': OtpRedactor.redact(e.toString()),
+        'updatedAt': nowTs,
+      };
+      try {
+        if (mirrorSnap != null && mirrorSnap.exists) {
+          await connRef.update(pendingFields);
+        } else {
+          await connRef.set({
+            'ownerId': userId,
+            ...pendingFields,
+          }, SetOptions(merge: true));
+        }
       } catch (_) {}
       throw const AppException(
         code: 'SERVER_REVOCATION_PENDING',

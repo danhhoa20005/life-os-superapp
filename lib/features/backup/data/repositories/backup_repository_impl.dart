@@ -35,6 +35,7 @@ class BackupRepositoryImpl implements BackupRepository {
   Future<Result<BackupExportBundle>> exportOwnerData({
     required String ownerId,
     String? passphrase,
+    bool allowPlaintextExport = false,
   }) async {
     try {
       final collections = await _remoteDataSource.fetchAllOwnerCollections(
@@ -46,6 +47,7 @@ class BackupRepositoryImpl implements BackupRepository {
         ownerId: ownerId,
         collections: collections,
         passphrase: cleanPass,
+        allowPlaintextExport: allowPlaintextExport,
       );
       final counts = <String, int>{
         for (final entry in collections.entries) entry.key: entry.value.length,
@@ -59,15 +61,23 @@ class BackupRepositoryImpl implements BackupRepository {
         BackupExportBundle(
           archiveContent: archive,
           fileName: encrypted
-              ? 'LifeOS_Backup_v3.lfbk.json'
-              : 'LifeOS_Backup_v3.json',
+              ? 'LifeOS_Backup_v4.lfbk.json'
+              : 'LifeOS_Backup_v4.json',
           mimeType: 'application/json',
           summary: summary,
           encrypted: encrypted,
           schemaVersion: BackupArchiveCodec.currentSchemaVersion,
           archiveSha256: BackupArchiveCodec.computeArchiveSha256(archive),
+          limitationsVi: encrypted
+              ? BackupCollectionCatalog.defaultLimitationsVi
+              : <String>[
+                  BackupArchiveCodec.plaintextExportWarningVi,
+                  ...BackupCollectionCatalog.defaultLimitationsVi,
+                ],
         ),
       );
+    } on FormatException catch (e) {
+      return Err(ValidationFailure(message: e.message));
     } catch (e) {
       return Err(ErrorMapper.map(e));
     }

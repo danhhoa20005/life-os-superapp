@@ -79,6 +79,18 @@ abstract final class FirebaseConfig {
     return '127.0.0.1';
   }
 
+  /// Bounded Firestore local offline persistence cache limit (100 MB).
+  ///
+  /// Bounds local cache growth while retaining persistent offline writes across
+  /// app restarts without calling `clearPersistence()` on account switches,
+  /// preventing unsynced writes from being discarded.
+  static const int maxFirestoreCacheSizeBytes = 100 * 1024 * 1024;
+
+  static const Settings firestoreSettings = Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: maxFirestoreCacheSizeBytes,
+  );
+
   static Future<void> initialize() async {
     final options = DefaultFirebaseOptions.currentPlatform;
     if (Firebase.apps.isEmpty) {
@@ -96,9 +108,6 @@ abstract final class FirebaseConfig {
       await FirebaseAuth.instance.setLanguageCode('vi');
     } catch (_) {}
 
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-    );
+    FirebaseFirestore.instance.settings = firestoreSettings;
   }
 }

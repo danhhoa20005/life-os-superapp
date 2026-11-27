@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -8,14 +9,112 @@ import 'package:life_os/core/backup/lifeos_backup_restore_engine.dart';
 import 'package:life_os/features/backup/domain/entities/backup_entities.dart';
 import 'package:life_os/features/backup/domain/services/backup_archive_codec.dart';
 
+String _buildLegacyV3EncryptedArchive({
+  required String ownerId,
+  required String passphrase,
+  required int iterations,
+}) {
+  final canonicalData = <String, dynamic>{
+    'schemaVersion': 3,
+    'ownerId': ownerId,
+    'exportedAtUtc': '2026-11-25T10:00:00.000Z',
+    'archiveKind': 'full_owner_backup',
+    'limitations': BackupCollectionCatalog.defaultLimitationsVi,
+    'collections': <String, dynamic>{
+      for (final key in BackupCollectionCatalog.allKeys)
+        key: key == BackupCollectionCatalog.wallets
+            ? [
+                {'id': 'w_v3', 'name': 'Ví v3', 'balanceMinor': 750000},
+              ]
+            : const <Map<String, dynamic>>[],
+    },
+  };
+  final plainBytes = utf8.encode(jsonEncode(canonicalData));
+  final shaHex = sha256.convert(plainBytes).toString();
+  final salt = Uint8List.fromList(List<int>.generate(16, (i) => i + 1));
+  final nonce = Uint8List.fromList(List<int>.generate(16, (i) => i + 33));
+  final masterKey = BackupArchiveCodec.pbkdf2HmacSha256(
+    passwordBytes: utf8.encode(passphrase),
+    salt: salt,
+    iterations: iterations,
+    dkLen: 32,
+  );
+  final expand = Hmac(sha256, masterKey);
+  final encKey = expand.convert(utf8.encode('lifeos-backup-v3-enc\x01')).bytes;
+  final macKey = expand.convert(utf8.encode('lifeos-backup-v3-mac\x01')).bytes;
+
+  final out = Uint8List(plainBytes.length);
+  final ctrHmac = Hmac(sha256, encKey);
+  var counter = 0;
+  var offset = 0;
+  while (offset < plainBytes.length) {
+    final block = ctrHmac.convert(<int>[
+      ...nonce,
+      (counter >> 24) & 0xFF,
+      (counter >> 16) & 0xFF,
+      (counter >> 8) & 0xFF,
+      counter & 0xFF,
+    ]).bytes;
+    final chunk = math.min(32, plainBytes.length - offset);
+    for (var i = 0; i < chunk; i++) {
+      out[offset + i] = plainBytes[offset + i] ^ block[i];
+    }
+    offset += chunk;
+    counter++;
+  }
+  final prefix = utf8.encode(
+    'PBKDF2-HMAC-SHA256|$iterations|STREAM-SHA256-ETM|',
+  );
+  final mac = Hmac(
+    sha256,
+    macKey,
+  ).convert(<int>[...prefix, ...salt, ...nonce, ...out]).bytes;
+
+  return jsonEncode(<String, dynamic>{
+    'format': BackupArchiveCodec.magicEnvelopeV3,
+    'encrypted': true,
+    'kdf': 'PBKDF2-HMAC-SHA256',
+    'iterations': iterations,
+    'cipher': 'STREAM-SHA256-ETM',
+    'saltB64': base64Encode(salt),
+    'nonceB64': base64Encode(nonce),
+    'macB64': base64Encode(mac),
+    'ciphertextB64': base64Encode(out),
+    'plaintextSha256': shaHex,
+  });
+}
+
 void main() {
   group('BackupArchiveCodec', () {
     test(
-      'creates & verifies v3 plaintext archive with SHA-256 and blocks tampering',
+      'refuses plaintext export by default unless allowPlaintextExport: true is passed',
+      () {
+        expect(
+          () => BackupArchiveCodec.createArchive(
+            ownerId: 'u_no_plain',
+            collections: const {},
+          ),
+          throwsFormatException,
+        );
+
+        expect(
+          () => const BackupArchiveCodec().encodeArchive(
+            ownerId: 'u_no_plain',
+            collections: const {},
+            passphrase: '   ',
+          ),
+          throwsFormatException,
+        );
+      },
+    );
+
+    test(
+      'creates & verifies v4 plaintext archive ONLY with explicit opt-in, emits warning, and blocks tampering',
       () {
         final raw = BackupArchiveCodec.createArchive(
           ownerId: 'u_codec_1',
           exportedAtOverride: DateTime.utc(2026, 11, 25, 10, 0),
+          allowPlaintextExport: true,
           collections: {
             BackupCollectionCatalog.wallets: [
               {'id': 'w1', 'name': 'Ví chính', 'balanceMinor': 1500000},
@@ -37,13 +136,16 @@ void main() {
         );
 
         final decoded = jsonDecode(raw) as Map<String, dynamic>;
-        expect(decoded['format'], BackupArchiveCodec.magicEnvelopeV3);
+        expect(decoded['format'], BackupArchiveCodec.magicEnvelopeV4);
+        expect(decoded['formatVersion'], 4);
         expect(decoded['encrypted'], isFalse);
 
         final preview = BackupArchiveCodec.previewAndValidateArchive(raw);
         expect(preview.schemaVersion, BackupArchiveCodec.currentSchemaVersion);
         expect(preview.checksumVerified, isTrue);
         expect(preview.wasEncrypted, isFalse);
+        expect(preview.isLegacyFormat, isFalse);
+        expect(preview.warnings, isNotEmpty);
         expect(preview.walletCount, 1);
         expect(preview.transactionCount, 1);
         expect(preview.noteCount, 1);
@@ -58,7 +160,7 @@ void main() {
     );
 
     test(
-      'encrypts & decrypts v3 archive with PBKDF2-HMAC-SHA256 >= 120000 off UI isolate and rejects wrong passphrase',
+      'encrypts & decrypts v4 archive with AES-256-GCM + PBKDF2-HMAC-SHA256 >= 210000 off UI isolate and rejects wrong passphrase',
       () async {
         const codec = BackupArchiveCodec();
         final encrypted = await codec.createArchiveAsync(
@@ -75,11 +177,16 @@ void main() {
         );
 
         final envelope = jsonDecode(encrypted) as Map<String, dynamic>;
-        expect(envelope['format'], BackupArchiveCodec.magicEnvelopeV3);
+        expect(envelope['format'], BackupArchiveCodec.magicEnvelopeV4);
+        expect(envelope['formatVersion'], 4);
+        expect(envelope['schemaVersion'], 4);
         expect(envelope['encrypted'], isTrue);
         expect(envelope['kdf'], 'PBKDF2-HMAC-SHA256');
-        expect(envelope['iterations'], greaterThanOrEqualTo(120000));
-        expect(envelope['cipher'], 'STREAM-SHA256-ETM');
+        expect(envelope['iterations'], greaterThanOrEqualTo(210000));
+        expect(envelope['cipher'], 'AES-256-GCM');
+        expect(base64Decode(envelope['saltB64'] as String).length, 16);
+        expect(base64Decode(envelope['nonceB64'] as String).length, 12);
+        expect(base64Decode(envelope['tagB64'] as String).length, 16);
         expect(encrypted.contains('VCB Lương'), isFalse);
         expect(encrypted.contains('Dữ liệu riêng tư'), isFalse);
 
@@ -97,6 +204,7 @@ void main() {
           passphrase: 'MatKhauManh#2026',
         );
         expect(preview.wasEncrypted, isTrue);
+        expect(preview.isLegacyFormat, isFalse);
         expect(preview.checksumVerified, isTrue);
         expect(preview.walletCount, 1);
         expect(preview.noteCount, 1);
@@ -145,7 +253,7 @@ void main() {
     );
 
     test(
-      'rejects v3 archive claiming 4096 iterations or missing/weak KDF metadata',
+      'rejects v4 archive claiming out-of-range iterations (< 100000 or > 1000000) or missing/weak KDF metadata',
       () async {
         const weakTestCodec = BackupArchiveCodec.forTesting(
           kdfIterations: 4096,
@@ -163,7 +271,7 @@ void main() {
         final weakEnvelope = jsonDecode(weakArchive) as Map<String, dynamic>;
         expect(weakEnvelope['iterations'], 4096);
 
-        // Production codec MUST reject any v3 file claiming < 12000 iterations.
+        // Production codec MUST reject any v4 file claiming < 100000 or > 1000000 iterations.
         const prodCodec = BackupArchiveCodec();
         await expectLater(
           prodCodec.previewAndValidateAsync(
@@ -173,7 +281,24 @@ void main() {
           throwsFormatException,
         );
 
-        // Forging missing iterations or old 'HMAC-SHA256-4096' label MUST fail.
+        const justBelowCodec = BackupArchiveCodec.forTesting(
+          kdfIterations: 99999,
+          minDecodeIterations: 99999,
+        );
+        final justBelowArchive = await justBelowCodec.createArchiveAsync(
+          ownerId: 'u_below',
+          passphrase: 'Pass#Below100k',
+          collections: const {},
+        );
+        await expectLater(
+          prodCodec.previewAndValidateAsync(
+            justBelowArchive,
+            passphrase: 'Pass#Below100k',
+          ),
+          throwsFormatException,
+        );
+
+        // Forging missing iterations or old KDF label MUST fail.
         final missingIter = Map<String, dynamic>.from(weakEnvelope)
           ..remove('iterations');
         await expectLater(
@@ -186,7 +311,7 @@ void main() {
 
         final legacyKdfLabel = Map<String, dynamic>.from(weakEnvelope)
           ..['kdf'] = 'HMAC-SHA256-4096'
-          ..['iterations'] = 120000;
+          ..['iterations'] = 210000;
         await expectLater(
           prodCodec.previewAndValidateAsync(
             jsonEncode(legacyKdfLabel),
@@ -198,11 +323,11 @@ void main() {
     );
 
     test(
-      'tampered v3 ciphertext or MAC fails closed (both fail authentication)',
+      'tampered v4 ciphertext, tag, or AAD/header fails closed (all fail authentication)',
       () async {
-        const fastCodec = BackupArchiveCodec.forTesting(kdfIterations: 12000);
+        const fastCodec = BackupArchiveCodec.forTesting(kdfIterations: 100000);
         final encrypted = await fastCodec.createArchiveAsync(
-          ownerId: 'u_mac_tamper',
+          ownerId: 'u_gcm_tamper',
           passphrase: 'StrongPass#2026',
           collections: {
             BackupCollectionCatalog.wallets: [
@@ -212,7 +337,7 @@ void main() {
         );
         final root = jsonDecode(encrypted) as Map<String, dynamic>;
 
-        // 1. Flip 1 byte in ciphertextB64 -> MAC failure before decrypt
+        // 1. Flip 1 byte in ciphertextB64 -> GCM tag failure before decrypt
         final ct = base64Decode(root['ciphertextB64'] as String);
         ct[0] ^= 0xFF;
         final badCt = Map<String, dynamic>.from(root)
@@ -225,25 +350,36 @@ void main() {
           throwsFormatException,
         );
 
-        // 2. Flip 1 byte in macB64 -> fails closed
-        final mac = base64Decode(root['macB64'] as String);
-        mac[mac.length - 1] ^= 0x01;
-        final badMac = Map<String, dynamic>.from(root)
-          ..['macB64'] = base64Encode(mac);
+        // 2. Flip 1 byte in tagB64 -> fails closed
+        final tag = base64Decode(root['tagB64'] as String);
+        tag[tag.length - 1] ^= 0x01;
+        final badTag = Map<String, dynamic>.from(root)
+          ..['tagB64'] = base64Encode(tag);
         await expectLater(
           fastCodec.previewAndValidateAsync(
-            jsonEncode(badMac),
+            jsonEncode(badTag),
             passphrase: 'StrongPass#2026',
           ),
           throwsFormatException,
         );
 
-        // 3. Downgrade iterations field on legitimate envelope -> MAC context mismatch
+        // 3. Downgrade iterations field on legitimate envelope -> AAD mismatch
         final downgradedIter = Map<String, dynamic>.from(root)
-          ..['iterations'] = 12001;
+          ..['iterations'] = 100001;
         await expectLater(
           fastCodec.previewAndValidateAsync(
             jsonEncode(downgradedIter),
+            passphrase: 'StrongPass#2026',
+          ),
+          throwsFormatException,
+        );
+
+        // 4. Tamper AAD field directly -> fails closed
+        final badAad = Map<String, dynamic>.from(root)
+          ..['aad'] = 'tampered-aad';
+        await expectLater(
+          fastCodec.previewAndValidateAsync(
+            jsonEncode(badAad),
             passphrase: 'StrongPass#2026',
           ),
           throwsFormatException,
@@ -252,8 +388,23 @@ void main() {
     );
 
     test(
-      'backward-compatible with v2 (LIFEOS_BACKUP_V2) and v1 PersonalDataExport archives',
+      'read-only backward-compatible with v3 (LIFEOS_BACKUP_V3), v2 (LIFEOS_BACKUP_V2) and v1 PersonalDataExport with isLegacyFormat: true',
       () {
+        final v3Legacy = _buildLegacyV3EncryptedArchive(
+          ownerId: 'u_v3',
+          passphrase: 'PassV3#123',
+          iterations: 120000,
+        );
+        final v3Preview = BackupArchiveCodec.previewAndValidateArchive(
+          v3Legacy,
+          passphrase: 'PassV3#123',
+        );
+        expect(v3Preview.schemaVersion, 3);
+        expect(v3Preview.wasEncrypted, isTrue);
+        expect(v3Preview.isLegacyFormat, isTrue);
+        expect(v3Preview.walletCount, 1);
+        expect(v3Preview.warnings.any((w) => w.contains('v3')), isTrue);
+
         final v2Archive = LifeOsBackupRestoreEngine.createBackupArchive(
           ownerId: 'u_v2',
           passphrase: 'PassV2#123',
@@ -280,10 +431,11 @@ void main() {
         );
         expect(v2Preview.schemaVersion, 2);
         expect(v2Preview.wasEncrypted, isTrue);
+        expect(v2Preview.isLegacyFormat, isTrue);
         expect(v2Preview.walletCount, 1);
         expect(v2Preview.transactionCount, 1);
         expect(
-          v2Preview.warnings.any((w) => w.contains('v2') && w.contains('v3')),
+          v2Preview.warnings.any((w) => w.contains('v2') && w.contains('v4')),
           isTrue,
         );
 
@@ -316,6 +468,7 @@ void main() {
 
         final v1Preview = BackupArchiveCodec.previewAndValidateArchive(v1Raw);
         expect(v1Preview.schemaVersion, 1);
+        expect(v1Preview.isLegacyFormat, isTrue);
         expect(v1Preview.walletCount, 1);
         expect(v1Preview.transactionCount, 1);
         expect(
@@ -332,10 +485,11 @@ void main() {
       },
     );
 
-    test('rejects v3 archive with corrupted plaintextSha256', () {
+    test('rejects v4 archive with corrupted plaintextSha256', () {
       final raw = BackupArchiveCodec.createArchive(
         ownerId: 'u_tamper',
         collections: const {},
+        allowPlaintextExport: true,
       );
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
       decoded['sha256'] = sha256.convert(utf8.encode('other')).toString();

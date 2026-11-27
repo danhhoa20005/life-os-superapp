@@ -206,6 +206,7 @@ class BackupArchivePreview extends Equatable {
   final DateTime exportedAt;
   final bool checksumVerified;
   final bool wasEncrypted;
+  final bool isLegacyFormat;
   final String archiveSha256;
   final Map<String, List<Map<String, dynamic>>> collections;
   final List<String> warnings;
@@ -217,6 +218,7 @@ class BackupArchivePreview extends Equatable {
     required this.exportedAt,
     required this.checksumVerified,
     required this.wasEncrypted,
+    this.isLegacyFormat = false,
     required this.archiveSha256,
     required this.collections,
     this.warnings = const <String>[],
@@ -258,6 +260,7 @@ class BackupArchivePreview extends Equatable {
     exportedAt,
     checksumVerified,
     wasEncrypted,
+    isLegacyFormat,
     archiveSha256,
     collections,
     warnings,

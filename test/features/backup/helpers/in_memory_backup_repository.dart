@@ -10,11 +10,15 @@ import 'package:life_os/features/backup/domain/services/backup_archive_codec.dar
 class InMemorySnapshotBackupRepository implements BackupRepository {
   final Map<String, List<Map<String, dynamic>>> _store;
   final BackupArchiveCodec _codec;
+  final bool _allowPlaintextFallbackForWidgetTests;
 
   InMemorySnapshotBackupRepository({
     Map<String, List<Map<String, dynamic>>> initialCollections = const {},
     BackupArchiveCodec codec = const BackupArchiveCodec.forTesting(),
+    bool allowPlaintextFallbackForWidgetTests = true,
   }) : _codec = codec,
+       _allowPlaintextFallbackForWidgetTests =
+           allowPlaintextFallbackForWidgetTests,
        _store = <String, List<Map<String, dynamic>>>{
          for (final key in BackupCollectionCatalog.allKeys)
            key: (initialCollections[key] ?? const <Map<String, dynamic>>[])
@@ -41,33 +45,40 @@ class InMemorySnapshotBackupRepository implements BackupRepository {
   Future<Result<BackupExportBundle>> exportOwnerData({
     required String ownerId,
     String? passphrase,
+    bool allowPlaintextExport = false,
   }) async {
     final cleanPass = (passphrase ?? '').trim();
     final encrypted = cleanPass.isNotEmpty;
-    final archive = await _codec.createArchiveAsync(
-      ownerId: ownerId,
-      collections: _store,
-      passphrase: cleanPass,
-    );
-    return Success(
-      BackupExportBundle(
-        archiveContent: archive,
-        fileName: encrypted
-            ? 'LifeOS_Backup_v3.lfbk.json'
-            : 'LifeOS_Backup_v3.json',
-        mimeType: 'application/json',
-        summary: BackupOwnerDataSummary(
-          ownerId: ownerId,
-          countsByCollection: <String, int>{
-            for (final entry in _store.entries) entry.key: entry.value.length,
-          },
-          loadedAt: DateTime.now().toUtc(),
+    try {
+      final archive = await _codec.createArchiveAsync(
+        ownerId: ownerId,
+        collections: _store,
+        passphrase: cleanPass,
+        allowPlaintextExport:
+            allowPlaintextExport || _allowPlaintextFallbackForWidgetTests,
+      );
+      return Success(
+        BackupExportBundle(
+          archiveContent: archive,
+          fileName: encrypted
+              ? 'LifeOS_Backup_v4.lfbk.json'
+              : 'LifeOS_Backup_v4.json',
+          mimeType: 'application/json',
+          summary: BackupOwnerDataSummary(
+            ownerId: ownerId,
+            countsByCollection: <String, int>{
+              for (final entry in _store.entries) entry.key: entry.value.length,
+            },
+            loadedAt: DateTime.now().toUtc(),
+          ),
+          encrypted: encrypted,
+          schemaVersion: BackupArchiveCodec.currentSchemaVersion,
+          archiveSha256: BackupArchiveCodec.computeArchiveSha256(archive),
         ),
-        encrypted: encrypted,
-        schemaVersion: BackupArchiveCodec.currentSchemaVersion,
-        archiveSha256: BackupArchiveCodec.computeArchiveSha256(archive),
-      ),
-    );
+      );
+    } on FormatException catch (e) {
+      return Err(ValidationFailure(message: e.message));
+    }
   }
 
   @override
