@@ -9,9 +9,11 @@ import '../../../../core/error/app_exception.dart';
 import '../../../../core/error/error_mapper.dart';
 import '../../../../core/security/bank_notification_parser.dart';
 import '../../../../core/services/android_notification_bridge.dart';
+import '../../../../core/services/file_storage_service.dart';
 import '../../../../core/services/native_alarm_scheduler_bridge.dart';
 import '../../../../core/services/native_home_widget_bridge.dart';
 import '../../../../core/services/native_secure_vault_bridge.dart';
+import '../../../../core/services/personal_alarm_service.dart';
 import '../../../../core/utils/user_behavior_prefs.dart';
 import '../../../../core/utils/vietqr_emv_builder.dart';
 import '../../../../core/utils/vnd_amount.dart';
@@ -69,7 +71,9 @@ class NotificationsRemoteDataSource {
       await _clearUserVaultOverride(userId);
       return;
     }
-    await NativeSecureVaultBridge.instance.clearAllSecrets();
+    await NativeSecureVaultBridge.instance.clearSecretsForUser(userId);
+    await SparkSafeFileStorageService.clearVaultForUser(userId);
+    await PersonalAlarmStore.instance.clearSessionOnSignOut();
   }
 
   Future<Map<String, dynamic>> _invokeBackendFunction(
